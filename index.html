@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>連接詞練習 V4.0 (進度條優化版)</title>
+    <style>
+        /* --- 1. 字體設定 --- */
+        @font-face {
+            font-family: 'TW-Sung';
+            src: url('https://cdn.jsdelivr.net/gh/max32002/TW-Sung@2.128/TW-Sung-90ms.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --primary-color: #A9D18E; /* 綠色系 */
+            --accent-color: #6AA84F; /* 深綠色 */
+            --main-font: 'TW-Sung', "Microsoft JhengHei", sans-serif;
+            --bg-color: #F6FFED;
+        }
+
+        body {
+            font-family: var(--main-font);
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        /* 導覽列 */
+        .nav-bar {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            background: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .nav-btn {
+            border: none;
+            background: none;
+            font-size: 1.1em;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 30px;
+            color: #888;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .nav-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        /* 容器設定 */
+        .container {
+            display: none;
+            width: 90%;
+            max-width: 600px;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container.active {
+            display: flex;
+            animation: fadeIn 0.5s;
+        }
+
+        /* --- 學習模式 --- */
+        .linker-card { background: white; padding: 30px; width: 100%; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .linker-word { font-size: 2.5em; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; text-align: center; border-bottom: 3px dashed var(--primary-color); padding-bottom: 10px; }
+        .linker-meaning { font-size: 1.2em; color: #555; margin-bottom: 15px; line-height: 1.8; }
+        .linker-example { background-color: #F0F9FF; padding: 15px; border-radius: 10px; font-style: italic; color: #333; }
+
+        /* --- 測驗模式 (填空) --- */
+        /* 新增：進度顯示樣式 */
+        .progress-display {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        #quizContent { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; }
+        .quiz-question { font-size: 1.5em; margin-bottom: 25px; line-height: 2; text-align: center; color: #333; }
+        .option-btn { background: #E8F5E9; border: 2px solid var(--primary-color); padding: 12px; border-radius: 12px; font-size: 1.1em; text-align: center; cursor: pointer; margin-bottom: 10px; width: 100%; box-sizing: border-box; transition: 0.2s; color: #333; font-weight: bold; }
+        .option-btn:hover { background-color: var(--primary-color); }
+        .option-btn.correct { background-color: #C8E6C9; border-color: #4CAF50; color: #2E7D32; }
+        .option-btn.wrong { background-color: #FFCDD2; border-color: #F44336; color: #C62828; }
+        .quiz-feedback { min-height: 30px; color: var(--accent-color); font-weight: bold; margin-top:15px; text-align: center; }
+        .btn-main { padding: 10px 25px; font-size: 1.1em; border: none; border-radius: 50px; background-color: var(--accent-color); color: white; cursor: pointer; margin-top: 20px; }
+        #quizSummary { display:none; text-align:center; padding: 30px; background: white; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; }
+        .summary-score { font-size: 2.2em; color: var(--accent-color); font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <div class="nav-bar">
+        <button class="nav-btn active" id="btnStudy" onclick="switchMode('study')">📖 用法</button>
+        <button class="nav-btn" id="btnQuiz" onclick="switchMode('quiz')">✍️ 練習</button>
+    </div>
+
+    <div id="studyContainer" class="container active">
+        <select id="linkerSelector" onchange="jumpToLinker(this.value)" style="margin-bottom: 15px; padding: 10px; font-size: 1.1em; border-radius: 8px; border: 2px solid var(--accent-color);">
+            </select>
+
+        <div class="linker-card">
+            <div class="linker-word" id="studyWord">載入中...</div>
+            <div class="linker-meaning" id="studyMeaning">載入中...</div>
+            <div class="linker-example" id="studyExample">載入中...</div>
+        </div>
+
+        <div class="control-area">
+            <button class="btn-main" style="background-color: #ccc;" onclick="prevLinker()">上一個</button>
+            <button class="btn-main" onclick="nextLinker()">下一個</button>
+        </div>
+    </div>
+
+    <div id="quizContainer" class="container">
+        
+        <div class="progress-display" id="quizProgress"></div>
+        
+        <div id="quizSummary">
+            <h2 style="color: var(--accent-color);">練習結果</h2>
+            <p id="summaryText" class="summary-score"></p>
+            <p style="font-size: 1.1em; color: #777; margin-bottom: 20px;">恭喜完成一輪練習！</p>
+            <button class="btn-main" onclick="startNewQuizRound()">再測一次</button>
+        </div>
+
+        <div id="quizContent">
+            <div class="quiz-question" id="quizQuestion">請選出最適合的連接詞填入空格中。</div>
+            <div id="quizOptions"></div>
+            <div id="quizFeedback" class="quiz-feedback"></div>
+            <button class="btn-main" onclick="nextQuiz()">下一題</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 資料庫 (V3.0 資料庫，內容不變) ---
+        const linkerData = [
+            { 
+                word: "但是", 
+                meaning: "表示轉折語氣，引導出與前一句相反或不同的情況。", 
+                type: "轉折",
+                examples: [
+                    "雖然今天天氣晴朗，_____風卻很大，不適合在外久留。",
+                    "我答應幫他這個忙，_____我希望他下次能自己解決問題。",
+                    "這款手機功能強大，_____價格並不親民。"
+                ]
+            },
+            { 
+                word: "如果", 
+                meaning: "表示假設關係，通常與『就』、『便』等詞搭配使用。", 
+                type: "假設",
+                examples: [
+                    "_____你明天有空，我們就一起去看電影。",
+                    "_____能再多給我一點時間準備，我一定會做得更好。",
+                    "_____我們現在出發，應該剛好可以趕上日出。"
+                ]
+            },
+            { 
+                word: "雖然", 
+                meaning: "表示讓步或輕微轉折，通常與『但是』、『仍然』等詞搭配。", 
+                type: "讓步轉折",
+                examples: [
+                    "_____她已經很努力了，結果卻仍然不盡理想。",
+                    "_____這本書有點貴，但是內容非常值得一讀。",
+                    "_____我們輸了比賽，不過隊員們的士氣並沒有因此低落。"
+                ]
+            },
+            { 
+                word: "既然", 
+                meaning: "表示前提或原因，引導出合理的結果或決定。", 
+                type: "因果",
+                examples: [
+                    "你_____已經決定出國留學，就應該好好規劃接下來的行程。",
+                    "_____大家意見都一致，我們就按照這個方案執行吧。",
+                    "_____你對這件事情不了解，就請不要隨意發表評論。"
+                ]
+            },
+            { 
+                word: "竟然", 
+                meaning: "表示出乎意料或驚訝的語氣。", 
+                type: "驚訝",
+                examples: [
+                    "他看起來文靜有禮，沒想到私底下_____是一個熱愛極限運動的選手。",
+                    "這道數學題看起來很簡單，我嘗試了好幾次_____沒算出來。",
+                    "我們都認為他會反對，結果他_____第一個表示贊成。"
+                ]
+            },
+            { 
+                word: "或許", 
+                meaning: "表示不確定性或可能性。", 
+                type: "推測",
+                examples: [
+                    "他遲到了這麼久，_____路上出了點狀況，我們再等等看吧。",
+                    "這是一個很難的決定，_____我們可以先聽聽其他人的意見。",
+                    "別太早放棄，這件事_____還有一線轉機。"
+                ]
+            },
+            { 
+                word: "然後", 
+                meaning: "表示時間或步驟的順序。", 
+                type: "順序",
+                examples: [
+                    "我先去圖書館借書，_____回家完成作業。",
+                    "我們討論了方案的細節，_____開始分配每個人的任務。",
+                    "她先向老師提出問題，_____得到了詳細的解答。"
+                ]
+            },
+            { 
+                word: "不然", 
+                meaning: "表示假設的否定情況，引導出後果或警告，相當於『否則』。", 
+                type: "警告",
+                examples: [
+                    "請你動作快一點，_____我們會趕不上火車的。",
+                    "你必須遵守規定，_____會被處罰。",
+                    "記得把門鎖好，_____小偷可能會跑進來。"
+                ]
+            },
+            { 
+                word: "然而", 
+                meaning: "表示轉折，語氣比『但是』更為正式。", 
+                type: "正式轉折",
+                examples: [
+                    "這份企劃書的內容很豐富，_____在預算方面似乎過於樂觀。",
+                    "他耗費了許多心力進行研究，_____最終的成果卻不如預期。",
+                    "許多人追求名利，_____這些並不能帶來真正的快樂。"
+                ]
+            },
+            { 
+                word: "倒是", 
+                meaning: "表示提出一個與眾不同或出乎意料的看法，帶有輕微轉折或強調。", 
+                type: "輕微轉折",
+                examples: [
+                    "他不會說法文，英文_____說得很流利。",
+                    "這道菜看起來很簡單，吃起來_____挺美味的。",
+                    "他今天看起來心情不太好，_____他對工作表現還是一樣認真。"
+                ]
+            },
+            { 
+                word: "不過", 
+                meaning: "表示輕微轉折或補充說明，語氣較『但是』緩和。", 
+                type: "輕微轉折",
+                examples: [
+                    "這家餐廳的服務很不錯，_____價格稍微高了一點。",
+                    "我對這個計畫沒有異議，_____我們需要更多的資金支援。",
+                    "他已經通過了初試，_____複試的難度更高。"
+                ]
+            },
+            { 
+                word: "與其", 
+                meaning: "表示比較選擇，通常與『不如』、『寧可』搭配，引導出比較不願意選擇的一方。", 
+                type: "選擇",
+                examples: [
+                    "_____坐在家裡發呆，不如出去走走，呼吸新鮮空氣。",
+                    "_____抱怨環境不好，不如想想自己能做些什麼改變。",
+                    "_____現在勉強接受，不如仔細思考後再做決定。"
+                ]
+            },
+            { 
+                word: "並且", 
+                meaning: "表示並列或進一步的遞進關係。", 
+                type: "並列遞進",
+                examples: [
+                    "他主動完成了任務，_____提供了幾項改進建議。",
+                    "我們需要提供詳細的報告，_____要附上所有相關的數據。",
+                    "這座城市不僅環境優美，_____歷史文化也十分豐富。"
+                ]
+            },
+            { 
+                word: "反而", 
+                meaning: "表示事物發展的方向與預期或常理相反。", 
+                type: "反向轉折",
+                examples: [
+                    "原本想靠節食來減肥，沒想到體重_____增加了。",
+                    "他的安慰沒有讓她好過，_____讓她更難過了。",
+                    "下雨天原本以為路上車會少一點，_____比平常更塞。"
+                ]
+            },
+            { 
+                word: "所以", 
+                meaning: "表示結果或結論，通常是對前一句原因的總結。", 
+                type: "因果",
+                examples: [
+                    "因為他昨天熬夜工作，_____今天精神不太好。",
+                    "這項產品的品質優異，_____獲得了市場的廣泛認可。",
+                    "我們錯過了最後一班公車，_____不得不搭計程車回家。"
+                ]
+            },
+            { 
+                word: "不論", 
+                meaning: "表示在任何條件或範圍內，結果都不會改變。", 
+                type: "條件/範圍",
+                examples: [
+                    "_____天氣晴朗或下雨，我都會準時參加這場會議。",
+                    "_____遇到多大的困難，我們都不能輕言放棄。",
+                    "_____你來自哪個國家，在這裡都會受到平等的對待。"
+                ]
+            }
+        ];
+
+        let studyIndex = 0; // 學習模式索引
+        
+        // 測驗模式狀態變數
+        let totalQuizzes = linkerData.length; 
+        let correctAnswers = 0;
+        let wrongAnswers = 0;
+        let quizOrder = []; 
+        let currentQuestionIndex = 0; 
+
+        // --- 2. 學習模式功能 (無變動) ---
+
+        function populateDropdown() {
+            const selector = document.getElementById('linkerSelector');
+            if (!selector) return;
+
+            selector.innerHTML = '';
+            linkerData.forEach((data, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.innerText = `${data.word} (${data.type})`; 
+                selector.appendChild(option);
+            });
+        }
+        
+        function jumpToLinker(index) {
+            studyIndex = parseInt(index);
+            renderStudyCard();
+        }
+
+        function renderStudyCard() {
+            const data = linkerData[studyIndex];
+            document.getElementById('studyWord').innerText = data.word;
+            document.getElementById('studyMeaning').innerText = `【用途】${data.meaning}`;
+            
+            const exampleSentence = data.examples[0];
+            const filledExample = exampleSentence.replace("_____", `【${data.word}】`);
+            document.getElementById('studyExample').innerText = `【例句】${filledExample}`;
+
+            document.getElementById('linkerSelector').value = studyIndex;
+        }
+
+        function nextLinker() {
+            studyIndex = (studyIndex + 1) % linkerData.length;
+            renderStudyCard();
+        }
+
+        function prevLinker() {
+            studyIndex = (studyIndex - 1 + linkerData.length) % linkerData.length;
+            renderStudyCard();
+        }
+
+        // --- 3. 測驗模式功能 (新增進度條) ---
+        
+        function updateQuizProgress() {
+             const progressDiv = document.getElementById('quizProgress');
+             if (currentQuestionIndex < totalQuizzes) {
+                 progressDiv.innerText = `第 ${currentQuestionIndex + 1} 題 / 共 ${totalQuizzes} 題`;
+             } else {
+                 progressDiv.innerText = '';
+             }
+         }
+
+        function shuffleQuizOrder() {
+            quizOrder = Array.from({ length: linkerData.length }, (_, i) => i);
+            quizOrder.sort(() => Math.random() - 0.5);
+        }
+
+        function switchMode(mode) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.container').forEach(con => con.classList.remove('active'));
+            
+            // 重置進度顯示區塊
+            document.getElementById('quizProgress').style.display = 'none';
+
+            if(mode === 'study') {
+                document.getElementById('btnStudy').classList.add('active');
+                document.getElementById('studyContainer').classList.add('active');
+                renderStudyCard();
+            } else {
+                document.getElementById('btnQuiz').classList.add('active');
+                document.getElementById('quizContainer').classList.add('active');
+                initQuiz(); 
+                document.getElementById('quizProgress').style.display = 'block';
+            }
+        }
+        
+        function initQuiz() {
+            shuffleQuizOrder();
+            currentQuestionIndex = 0;
+            correctAnswers = 0;
+            wrongAnswers = 0;
+            totalQuizzes = linkerData.length; 
+
+            document.getElementById('quizSummary').style.display = 'none';
+            document.getElementById('quizContent').style.display = 'block';
+            renderQuizQuestion();
+            updateQuizProgress(); // 初始化進度
+        }
+
+        function renderQuizQuestion() {
+            if (currentQuestionIndex >= totalQuizzes) {
+                showQuizSummary();
+                return;
+            }
+            
+            const quizIndex = quizOrder[currentQuestionIndex];
+            const currentData = linkerData[quizIndex];
+            
+            const exampleIndex = Math.floor(Math.random() * currentData.examples.length);
+            const questionSentence = currentData.examples[exampleIndex];
+
+            document.getElementById('quizQuestion').innerHTML = questionSentence; 
+            document.getElementById('quizFeedback').innerText = "";
+            
+            const optionsDiv = document.getElementById('quizOptions');
+            optionsDiv.innerHTML = "";
+
+            let options = [];
+            options.push({ text: currentData.word, isCorrect: true }); 
+
+            let wrongLinkers = linkerData
+                .filter(data => data.word !== currentData.word)
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 3); 
+            
+            wrongLinkers.forEach(linker => {
+                options.push({ text: linker.word, isCorrect: false });
+            });
+
+            options.sort(() => Math.random() - 0.5);
+
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt.text;
+                btn.onclick = function() { checkAnswer(btn, opt.isCorrect, currentData.word) };
+                optionsDiv.appendChild(btn);
+            });
+            
+            updateQuizProgress(); // 更新進度
+        }
+
+        function checkAnswer(btn, isCorrect, correctWord) {
+            const allBtns = document.querySelectorAll('#quizOptions .option-btn');
+            allBtns.forEach(b => b.onclick = null); 
+
+            const questionDiv = document.getElementById('quizQuestion');
+            
+            if (isCorrect) {
+                btn.classList.add('correct');
+                questionDiv.innerHTML = questionDiv.innerHTML.replace("_____", `【${correctWord}】`);
+                document.getElementById('quizFeedback').innerText = "🎉 答對了！";
+                correctAnswers++; 
+            } else {
+                btn.classList.add('wrong');
+                document.getElementById('quizFeedback').innerText = "❌ 答錯了！請看正確答案填入後的句子。";
+                wrongAnswers++; 
+                
+                questionDiv.innerHTML = questionDiv.innerHTML.replace("_____", `【${correctWord}】`);
+                
+                allBtns.forEach(b => {
+                    if (b.innerText === correctWord && !b.classList.contains('wrong')) {
+                         b.classList.add('correct');
+                    }
+                });
+            }
+        }
+
+        function nextQuiz() {
+            currentQuestionIndex++;
+            renderQuizQuestion();
+        }
+
+        function showQuizSummary() {
+            const summaryDiv = document.getElementById('quizSummary');
+            const contentDiv = document.getElementById('quizContent');
+            const summaryText = document.getElementById('summaryText');
+
+            document.getElementById('quizProgress').innerText = ''; // 清空進度條
+
+            contentDiv.style.display = 'none';
+            summaryDiv.style.display = 'block';
+            
+            const percentage = totalQuizzes > 0 ? Math.round((correctAnswers / totalQuizzes) * 100) : 0;
+            summaryText.innerHTML = `答對 ${correctAnswers} 題，答錯 ${wrongAnswers} 題。<br>得分率：${percentage}%`;
+        }
+
+        function startNewQuizRound() {
+            initQuiz();
+        }
+
+
+        // --- 4. 啟動 ---
+        window.onload = function() {
+            populateDropdown();
+            renderStudyCard();
+        };
+
+    </script>
+</body>
+</html>
