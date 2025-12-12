@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎲 乘法占領挑戰 V13.0 (挑戰版流程解鎖)</title>
+    <style>
+        /* --- 0. 基礎與通用樣式 --- */
+        :root {
+            --player1-color: #E91E63;
+            --player2-color: #2196F3;
+            --primary-bg: #f4f4f9;
+            --container-bg: #ffffff;
+            --dice-bg: #FFC107;
+            --grid-line: #ccc;
+            --active-cell: #4CAF50;
+            --roll-btn-color: #8E44AD; 
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background-color: var(--primary-bg);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .screen {
+            max-width: 1400px;
+            width: 100%;
+            background: var(--container-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--player2-color);
+            margin-bottom: 25px;
+        }
+        
+        /* --- 入口畫面樣式 --- */
+        #startScreen {
+            max-width: 500px;
+            margin: 10vh auto;
+            text-align: center;
+        }
+        
+        .mode-switch {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        }
+
+        .mode-btn {
+            padding: 10px 15px;
+            border: 2px solid var(--player1-color);
+            background: white;
+            color: var(--player1-color);
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        
+        .mode-btn:hover {
+            background-color: #fce4ec; 
+        }
+
+        .mode-btn.active-mode {
+            background-color: var(--player1-color);
+            color: white;
+            border-color: var(--player1-color);
+        }
+        
+        #startButton {
+            background-color: var(--active-cell);
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        
+        #startButton:hover {
+            background-color: #43A047; 
+            transform: translateY(-2px);
+        }
+
+        /* --- 主遊戲畫面樣式 --- */
+        #gameScreen {
+            display: none;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            padding: 10px;
+        }
+        
+        .main-grid-container {
+            width: 650px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            width: 600px;
+            height: 600px;
+            border: 3px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .grid-cell {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            font-weight: bold;
+            border: 1px solid var(--grid-line);
+            cursor: pointer;
+        }
+        
+        .grid-cell.claimed {
+            cursor: default;
+        }
+
+        .player-control {
+            width: 100%;
+            max-width: 250px;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            background: #fdfdff;
+            border: 2px solid #eee;
+            transition: border-color 0.3s;
+        }
+
+        .player-control.active {
+            border-color: var(--active-cell);
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .player-control .timer-area {
+            font-size: 2.5em; 
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 10px;
+            min-height: 35px;
+        }
+
+        .dice-area {
+            text-align: center;
+            padding: 10px 0;
+            border-top: 1px solid #eee;
+        }
+
+        .dice-display {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0;
+            min-height: 40px;
+            flex-direction: row; 
+        }
+
+        .dice {
+            width: 40px;
+            height: 40px;
+            background-color: var(--dice-bg);
+            border: 3px solid #333;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .dice.selected {
+            border-color: var(--active-cell);
+            transform: scale(1.1);
+            box-shadow: 0 0 10px var(--active-cell);
+            background-color: #FDD835; 
+        }
+        
+        #rollDiceBtn1, #rollDiceBtn2 {
+            background-color: var(--roll-btn-color);
+            color: white;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: opacity 0.3s;
+        }
+        
+        .player-control:not(.active) #rollDiceBtn1,
+        .player-control:not(.active) #rollDiceBtn2 {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #rollDiceBtn1:disabled, #rollDiceBtn2:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .skip-btn {
+            background-color: #34495E;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        /* 彈出提示框樣式調整 */
+        .alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .alert-box {
+            background: white; 
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 450px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            opacity: 1; 
+        }
+
+        .alert-box h3 {
+            color: #E67E22;
+            margin-bottom: 15px;
+        }
+        
+        .alert-box button {
+            background-color: var(--active-cell);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div id="alertContainer"></div>
+
+    <div id="startScreen" class="screen">
+        <h1>🎲 乘法占領挑戰</h1>
+
+        <div class="mode-switch">
+            <h2>選擇遊戲模式</h2>
+            <button class="mode-btn active-mode" data-mode="study" onclick="selectMode('study')">📚 學習版 (無時間壓力)</button>
+            <button class="mode-btn" data-mode="challenge" onclick="selectMode('challenge')">⏱️ 挑戰版 (每輪倒數計時)</button>
+        </div>
+
+        <div class="player-input">
+            <h2>輸入玩家名稱</h2>
+            <div class="input-group">
+                <label for="p1Name">🔴 玩家 1 (粉):</label>
+                <input type="text" id="p1Name" value="玩家 1">
+            </div>
+            <div class="input-group">
+                <label for="p2Name">🔵 玩家 2 (藍):</label>
+                <input type="text" id="p2Name" value="玩家 2">
+            </div>
+        </div>
+
+        <button id="startButton" onclick="initGameAndSwitchToMain()">開始遊戲</button>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        
+        <div id="p1Control" class="player-control active">
+            <h2 id="p1Title">玩家 1</h2>
+            <div id="scoreP1" style="font-size: 1.8em; font-weight: bold; text-align: center; color: var(--player1-color); margin-bottom: 15px;">得分: 0</div>
+            
+            <div id="timerDisplay1" class="timer-area">00:00</div>
+            
+            <div class="dice-area">
+                <div class="dice-display" id="diceDisplay1">
+                    <div class="dice" data-value="?" data-index="0" onclick="selectDice(1, 0)">?</div>
+                    <div class="dice" data-value="?" data-index="1" onclick="selectDice(1, 1)">?</div>
+                    <div class="dice" data-value="?" data-index="2" onclick="selectDice(1, 2)">?</div>
+                </div>
+                <button class="btn" id="rollDiceBtn1" onclick="rollDice(1)">🔄 擲骰</button>
+                <button class="btn skip-btn" id="skipBtn1" onclick="handleSkipTurn(1)" disabled>重新擲骰 / 跳過</button>
+            </div>
+            <div id="productDisplay1" style="min-height: 20px; font-weight: bold; text-align: center; color: #555;"></div>
+        </div>
+        
+        <div class="main-grid-container">
+            <div class="grid-container" id="multiplicationGrid">
+                </div>
+            <div id="gameMessage">遊戲準備中...</div>
+        </div>
+
+        <div id="p2Control" class="player-control">
+            <h2 id="p2Title">玩家 2</h2>
+            <div id="scoreP2" style="font-size: 1.8em; font-weight: bold; text-align: center; color: var(--player2-color); margin-bottom: 15px;">得分: 0</div>
+            
+            <div id="timerDisplay2" class="timer-area">00:00</div>
+            
+            <div class="dice-area">
+                <div class="dice-display" id="diceDisplay2">
+                    <div class="dice" data-value="?" data-index="0" onclick="selectDice(2, 0)">?</div>
+                    <div class="dice" data-value="?" data-index="1" onclick="selectDice(2, 1)">?</div>
+                    <div class="dice" data-value="?" data-index="2" onclick="selectDice(2, 2)">?</div>
+                </div>
+                <button class="btn" id="rollDiceBtn2" onclick="rollDice(2)" disabled>🔄 擲骰</button>
+                <button class="btn skip-btn" id="skipBtn2" onclick="handleSkipTurn(2)" disabled>重新擲骰 / 跳過</button>
+            </div>
+            <div id="productDisplay2" style="min-height: 20px; font-weight: bold; text-align: center; color: #555;"></div>
+        </div>
+        
+    </div>
+
+    <script>
+        // --- 1. 遊戲狀態變數 ---
+        const GRID_SIZE = 6;
+        const MAX_MULTIPLICATION_FACTOR = 10;
+        const CHALLENGE_TIME = 30; 
+
+        let gridValues = []; 
+        let availableCells = GRID_SIZE * GRID_SIZE;
+        let claimedCells = {}; 
+        let currentPlayer = 1;
+        let gameMode = 'study';
+        let isGameActive = false;
+        let consecutiveSkips = 0;
+
+        let playerInfo = {
+            1: { name: '玩家 1', score: 0, rawScore: 0, diceValues: [0, 0, 0], selectedDiceIndices: [], requiredProduct: 0, timerInterval: null, timeElapsed: 0, countdownTime: CHALLENGE_TIME },
+            2: { name: '玩家 2', score: 0, rawScore: 0, diceValues: [0, 0, 0], selectedDiceIndices: [], requiredProduct: 0, timerInterval: null, timeElapsed: 0, countdownTime: CHALLENGE_TIME }
+        };
+
+        // --- 2. DOM 元素獲取 ---
+        const startScreenEl = document.getElementById('startScreen');
+        const gameScreenEl = document.getElementById('gameScreen');
+        const gridEl = document.getElementById('multiplicationGrid');
+        const gameMessageEl = document.getElementById('gameMessage');
+        const p1ControlEl = document.getElementById('p1Control');
+        const p2ControlEl = document.getElementById('p2Control');
+        const alertContainerEl = document.getElementById('alertContainer');
+
+        const var_player1_color = getComputedStyle(document.documentElement).getPropertyValue('--player1-color').trim();
+        const var_player2_color = getComputedStyle(document.documentElement).getPropertyValue('--player2-color').trim();
+
+        // --- 3. 遊戲初始化 ---
+        
+        function initGameAndSwitchToMain() {
+            const p1Name = document.getElementById('p1Name').value || '玩家 1';
+            const p2Name = document.getElementById('p2Name').value || '玩家 2';
+            
+            playerInfo[1].name = p1Name;
+            playerInfo[2].name = p2Name;
+
+            document.getElementById('p1Title').textContent = `🔴 ${p1Name}`;
+            document.getElementById('p2Title').textContent = `🔵 ${p2Name}`;
+
+            startScreenEl.style.display = 'none';
+            gameScreenEl.style.display = 'grid';
+            
+            startGame();
+        }
+
+        function generateGrid() {
+            gridValues = [];
+            gridEl.innerHTML = '';
+            
+            const uniqueProducts = new Set();
+            for (let i = 1; i <= MAX_MULTIPLICATION_FACTOR; i++) {
+                for (let j = 1; j <= MAX_MULTIPLICATION_FACTOR; j++) {
+                    uniqueProducts.add(i * j);
+                }
+            }
+            
+            const uniqueProductsArray = Array.from(uniqueProducts);
+            const shuffledProducts = uniqueProductsArray.sort(() => 0.5 - Math.random()).slice(0, GRID_SIZE * GRID_SIZE);
+
+            for (let i = 0; i < GRID_SIZE; i++) {
+                gridValues[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    const index = i * GRID_SIZE + j;
+                    const value = shuffledProducts[index];
+                    gridValues[i][j] = value;
+                    
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.textContent = value; 
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.dataset.value = value;
+                    cell.onclick = handleCellClick;
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        function startGame() {
+            isGameActive = true;
+            availableCells = GRID_SIZE * GRID_SIZE;
+            claimedCells = {};
+            currentPlayer = 1;
+            consecutiveSkips = 0; 
+            
+            playerInfo[1].score = 0;
+            playerInfo[2].score = 0;
+            playerInfo[1].rawScore = 0;
+            playerInfo[2].rawScore = 0;
+            playerInfo[1].timeElapsed = 0;
+            playerInfo[2].timeElapsed = 0;
+            
+            generateGrid();
+            updateScores();
+            resetDiceArea(1);
+            resetDiceArea(2);
+            
+            updateActivePlayerDisplay();
+            updateGameMessage();
+            
+            clearInterval(playerInfo[1].timerInterval);
+            clearInterval(playerInfo[2].timerInterval);
+            document.getElementById('timerDisplay1').textContent = '00:00';
+            document.getElementById('timerDisplay2').textContent = '00:00';
+            
+            document.getElementById('rollDiceBtn1').disabled = false;
+            document.getElementById('skipBtn1').disabled = true;
+            document.getElementById('rollDiceBtn2').disabled = true; 
+        }
+        
+        // --- 4. 核心規則：分數與網格檢查 ---
+        
+        function getNeighbors(row, col) {
+            const neighbors = [];
+            const r = parseInt(row);
+            const c = parseInt(col);
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            
+            for (const [dr, dc] of directions) {
+                const nr = r + dr;
+                const nc = c + dc;
+                
+                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                    neighbors.push(`${nr}-${nc}`);
+                }
+            }
+            return neighbors;
+        }
+
+        function findConnectedComponent(startId, playerNum, visited) {
+            const queue = [startId];
+            const component = [];
+            
+            while (queue.length > 0) {
+                const currentId = queue.shift();
+                
+                if (visited[currentId] || claimedCells[currentId] !== playerNum) continue;
+                
+                visited[currentId] = true;
+                component.push(currentId);
+                
+                const [r, c] = currentId.split('-');
+                const neighbors = getNeighbors(r, c);
+                
+                for (const neighborId of neighbors) {
+                    if (!visited[neighborId] && claimedCells[neighborId] === playerNum) {
+                        queue.push(neighborId);
+                    }
+                }
+            }
+            return component;
+        }
+
+        function calculateBonusScore() {
+            let totalScore1 = 0;
+            let totalScore2 = 0;
+            const visited = {};
+            
+            const claimedIds = Object.keys(claimedCells);
+
+            for (const id of claimedIds) {
+                const playerNum = claimedCells[id];
+                
+                if (!visited[id]) {
+                    const component = findConnectedComponent(id, playerNum, visited);
+                    
+                    const componentSize = component.length;
+                    
+                    let score = componentSize;
+                    
+                    if (componentSize >= 2) {
+                        score *= 2;
+                    }
+                    
+                    if (playerNum === 1) {
+                        totalScore1 += score;
+                    } else {
+                        totalScore2 += score;
+                    }
+                }
+            }
+            
+            playerInfo[1].score = totalScore1;
+            playerInfo[2].score = totalScore2;
+            
+            playerInfo[1].rawScore = Object.values(claimedCells).filter(p => p === 1).length;
+            playerInfo[2].rawScore = Object.values(claimedCells).filter(p => p === 2).length;
+        }
+        
+        function updateScores() {
+            calculateBonusScore();
+            
+            document.getElementById('scoreP1').textContent = `得分: ${playerInfo[1].score}`;
+            document.getElementById('scoreP2').textContent = `得分: ${playerInfo[2].score}`;
+        }
+        
+        function checkAvailableMove(product) {
+            if (product === 0) return false;
+            
+            const cellElements = document.querySelectorAll('.grid-cell:not(.claimed)');
+            for (const cell of cellElements) {
+                if (parseInt(cell.dataset.value) === product) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- 5. 擲骰與選擇邏輯 ---
+
+        function generateUniqueDiceValues() {
+            let values;
+            let attemptCount = 0;
+            
+            do {
+                values = [
+                    Math.floor(Math.random() * 10) + 1,
+                    Math.floor(Math.random() * 10) + 1,
+                    Math.floor(Math.random() * 10) + 1
+                ];
+                attemptCount++;
+                
+                // 檢查三個骰子是否完全相同
+                if (values[0] !== values[1] || values[0] !== values[2] || values[1] !== values[2]) {
+                    break; 
+                }
+                
+                if (attemptCount > 50) { 
+                    console.warn("Dice generation loop limit reached.");
+                    break;
+                }
+            } while (true); 
+
+            return values;
+        }
+
+        function findForceFactors() {
+            const availableCellsValues = Array.from(document.querySelectorAll('.grid-cell:not(.claimed)'))
+                .map(cell => parseInt(cell.dataset.value));
+
+            if (availableCellsValues.length > 0) {
+                // 隨機選一個可用的乘積
+                const targetProduct = availableCellsValues[Math.floor(Math.random() * availableCellsValues.length)];
+                
+                for (let i = 1; i <= MAX_MULTIPLICATION_FACTOR; i++) {
+                    if (targetProduct % i === 0) {
+                        const j = targetProduct / i;
+                        if (j >= 1 && j <= MAX_MULTIPLICATION_FACTOR) {
+                            // 找到一組可用的因數 (i, j)，第三顆隨機
+                            const k = Math.floor(Math.random() * 10) + 1;
+                            return [i, j, k]; 
+                        }
+                    }
+                }
+            }
+            return null; 
+        }
+
+        function rollDice(playerNum) {
+            // V13.0 修正：確保 isGameActive 狀態正確才能執行
+            if (!isGameActive || currentPlayer !== playerNum) return;
+            
+            const p = playerInfo[playerNum];
+            
+            document.getElementById(`rollDiceBtn${playerNum}`).disabled = true;
+            document.getElementById(`skipBtn${playerNum}`).disabled = true;
+            
+            p.selectedDiceIndices = [];
+            p.requiredProduct = 0;
+            document.getElementById(`productDisplay${playerNum}`).textContent = '';
+
+            const diceElements = Array.from(document.getElementById(`diceDisplay${playerNum}`).children);
+            diceElements.forEach((dice) => {
+                dice.textContent = '?';
+                dice.classList.add('dice-rolling');
+                dice.classList.remove('selected');
+                dice.onclick = null; 
+            });
+            
+            if (gameMode === 'study') {
+                p.timeElapsed = 0;
+                document.getElementById(`timerDisplay${playerNum}`).textContent = formatTime(0);
+            }
+            
+            startPlayerTimer(playerNum);
+
+            let forcedRoll = false;
+            let newValues = generateUniqueDiceValues();
+            
+            if (consecutiveSkips >= 3) {
+                const factors = findForceFactors();
+                if (factors) {
+                    newValues = factors;
+                    forcedRoll = true;
+                    consecutiveSkips = 0; 
+                }
+            }
+
+            setTimeout(() => {
+                
+                diceElements.forEach((dice, index) => {
+                    dice.classList.remove('dice-rolling');
+                    const newValue = newValues[index];
+                    
+                    p.diceValues[index] = newValue;
+                    dice.textContent = newValue;
+                    dice.dataset.value = newValue;
+                    dice.dataset.index = index; 
+                    dice.onclick = () => selectDice(playerNum, index); 
+                });
+                
+                if (forcedRoll) {
+                    gameMessageEl.innerHTML = `⚠️ **強制出解！** (連續跳過 3 次)。請選擇能相乘出可用乘積的骰子。`;
+                } else {
+                    gameMessageEl.innerHTML = `🎯 **${p.name}** 擲骰完畢，請選擇 **兩顆** 骰子相乘。`;
+                }
+                
+                document.getElementById(`skipBtn${playerNum}`).disabled = false;
+
+            }, 1000); 
+        }
+
+        function selectDice(playerNum, index) {
+            if (!isGameActive || currentPlayer !== playerNum) return;
+            
+            const p = playerInfo[playerNum];
+            const diceEl = document.getElementById(`diceDisplay${playerNum}`).children[index];
+            
+            if (diceEl.classList.contains('dice-rolling')) return; 
+
+            index = parseInt(index); 
+
+            if (p.selectedDiceIndices.includes(index)) {
+                p.selectedDiceIndices = p.selectedDiceIndices.filter(i => i !== index);
+                diceEl.classList.remove('selected');
+            } else if (p.selectedDiceIndices.length < 2) {
+                p.selectedDiceIndices.push(index);
+                diceEl.classList.add('selected');
+            } else {
+                gameMessageEl.textContent = `⚠️ ${p.name} 只能選擇兩顆骰子！`;
+                return;
+            }
+
+            if (p.selectedDiceIndices.length === 2) {
+                const val1 = p.diceValues[p.selectedDiceIndices[0]];
+                const val2 = p.diceValues[p.selectedDiceIndices[1]];
+                p.requiredProduct = val1 * val2; 
+                
+                document.getElementById(`productDisplay${playerNum}`).innerHTML = `已選: **${val1}** 和 **${val2}**。請點擊表格。`;
+                gameMessageEl.innerHTML = `✅ ${p.name} 已選定乘數 **${val1} x ${val2}**。請在表格中點擊 **正確的乘積** 格子進行占領！`;
+            } else {
+                p.requiredProduct = 0;
+                document.getElementById(`productDisplay${playerNum}`).textContent = '';
+                gameMessageEl.innerHTML = `請選擇 **兩顆** 骰子。`;
+            }
+        }
+        
+        function handleCellClick(event) {
+            if (!isGameActive) return;
+
+            const cell = event.target;
+            const cellValue = parseInt(cell.dataset.value);
+            const cellId = `${cell.dataset.row}-${cell.dataset.col}`;
+            const p = playerInfo[currentPlayer];
+
+            if (p.requiredProduct === 0 || p.selectedDiceIndices.length !== 2) {
+                gameMessageEl.textContent = `請 ${p.name} 先選擇 **兩顆** 骰子來計算乘積！`;
+                return;
+            }
+
+            if (cell.classList.contains('claimed')) {
+                gameMessageEl.textContent = `🚫 這個格子已經被占領了！`;
+                return;
+            }
+
+            if (cellValue === p.requiredProduct) {
+                
+                document.getElementById(`skipBtn${currentPlayer}`).disabled = true;
+
+                cell.classList.add('claimed', `p${currentPlayer}-claimed`);
+                cell.style.backgroundColor = currentPlayer === 1 ? var_player1_color : var_player2_color;
+                cell.style.color = 'white'; 
+
+                claimedCells[cellId] = currentPlayer;
+                availableCells--;
+                
+                consecutiveSkips = 0; 
+
+                updateScores();
+                
+                if (availableCells === 0) {
+                    endGame();
+                } else {
+                    switchPlayer();
+                }
+
+            } else {
+                gameMessageEl.innerHTML = `❌ ${p.name} 選擇的數字 **不正確** (${cellValue} ≠ ${p.requiredProduct})。請再試一次。`;
+            }
+        }
+        
+        // --- 6. 跳過與換人邏輯 ---
+        
+        function handleSkipTurn(playerNum) {
+            if (!isGameActive || currentPlayer !== playerNum) return;
+            
+            const p = playerInfo[playerNum];
+            document.getElementById(`skipBtn${playerNum}`).disabled = true;
+            
+            const dice = p.diceValues;
+            
+            const checkCombinations = (d) => {
+                 const combinations = [
+                    { val1: d[0], val2: d[1] },
+                    { val1: d[0], val2: d[2] },
+                    { val1: d[1], val2: d[2] }
+                ];
+                
+                for (const { val1, val2 } of combinations) {
+                    const product = val1 * val2;
+                    if (checkAvailableMove(product)) {
+                        return { found: true, val1, val2, product };
+                    }
+                }
+                return { found: false };
+            }
+
+            const checkResult = checkCombinations(dice);
+            const foundValidMove = checkResult.found;
+            const bestMove = checkResult;
+
+
+            if (foundValidMove) {
+                stopPlayerTimer(playerNum);
+                
+                let title, message, buttonText, action;
+
+                if (gameMode === 'study') {
+                    title = '🔔 提示：您有可用乘積！';
+                    message = `您可以選擇 **${bestMove.val1}** 和 **${bestMove.val2}** 來占領格子。請再試一次！`;
+                    buttonText = '繼續我的回合';
+                    action = () => { 
+                        isGameActive = true; 
+                        startPlayerTimer(playerNum); 
+                        resetDiceSelection(playerNum);
+                        document.getElementById(`skipBtn${playerNum}`).disabled = false;
+                    };
+                    
+                } else { // 挑戰版 (有解但選擇跳過 -> 判為失誤並換人)
+                    title = '❌ 失誤！回合被迫結束！';
+                    message = `網格中仍有可占領的乘積 (${bestMove.val1} x ${bestMove.val2})，但您選擇跳過，現在換下一位玩家。`;
+                    buttonText = '確認並換人';
+                    action = switchPlayer; 
+                }
+                
+                showAlert(title, message, buttonText, action);
+                
+                consecutiveSkips = 0; 
+
+            } else {
+                // 確實沒有數字可選 (無解)
+                consecutiveSkips++; 
+
+                if (gameMode === 'study') {
+                    gameMessageEl.innerHTML = `✔️ **${p.name}** 網格中確實沒有可用數字。請重新擲骰。`;
+                    document.getElementById(`rollDiceBtn${playerNum}`).disabled = false;
+                    document.getElementById(`skipBtn${playerNum}`).disabled = true;
+                    resetDiceArea(playerNum, false); 
+                    
+                } else { // 挑戰版無解時，直接換人。
+                    gameMessageEl.innerHTML = `😓 **${p.name}** 網格中沒有可用數字。跳過這回合。`;
+                    switchPlayer(); 
+                }
+            }
+        }
+        
+        function switchPlayer() {
+            stopPlayerTimer(currentPlayer);
+            
+            const prevPlayer = currentPlayer;
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            
+            resetDiceArea(prevPlayer);
+            
+            document.getElementById(`rollDiceBtn${currentPlayer}`).disabled = false;
+            document.getElementById(`skipBtn${currentPlayer}`).disabled = true; 
+            document.getElementById(`rollDiceBtn${prevPlayer}`).disabled = true; 
+            
+            updateGameMessage();
+            updateActivePlayerDisplay();
+
+            // V13.0 關鍵修正：確保換人後 isGameActive 恢復，解除對 rollDice 的鎖定
+            isGameActive = true; 
+        }
+
+
+        // --- 7. 介面與輔助功能 ---
+        
+        function showAlert(title, message, buttonText, action) {
+            const alertHtml = `
+                <div class="alert-overlay">
+                    <div class="alert-box">
+                        <h3>${title}</h3>
+                        <p>${message}</p>
+                        <button id="alertActionButton">${buttonText}</button>
+                    </div>
+                </div>
+            `;
+            alertContainerEl.innerHTML = alertHtml;
+            isGameActive = false; 
+
+            document.getElementById('alertActionButton').addEventListener('click', () => {
+                closeAlert(action);
+            });
+        }
+        
+        function closeAlert(actionFunction) {
+            alertContainerEl.innerHTML = '';
+            
+            if (typeof actionFunction === 'function') {
+                actionFunction(); 
+            }
+        }
+
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+        
+        function startPlayerTimer(playerNum) {
+            const p = playerInfo[playerNum];
+            const timerEl = document.getElementById(`timerDisplay${playerNum}`);
+            
+            clearInterval(p.timerInterval);
+            timerEl.style.color = '#333';
+            
+            if (gameMode === 'study') {
+                 p.timerInterval = setInterval(() => {
+                    p.timeElapsed++;
+                    timerEl.textContent = formatTime(p.timeElapsed);
+                 }, 1000);
+            } else if (gameMode === 'challenge') {
+                 p.countdownTime = CHALLENGE_TIME;
+                 timerEl.textContent = formatTime(p.countdownTime);
+                 
+                 p.timerInterval = setInterval(() => {
+                    p.countdownTime--;
+                    timerEl.textContent = formatTime(p.countdownTime);
+                    
+                    if (p.countdownTime <= 5) {
+                        timerEl.style.color = '#E74C3C';
+                    }
+                    
+                    if (p.countdownTime <= 0) {
+                        clearInterval(p.timerInterval);
+                        timerEl.textContent = '時間到！';
+                        
+                        showAlert(
+                            '⌛ 時間到！', 
+                            `**${p.name}** 未在時間內占領格子。回合結束，換下一位玩家。`, 
+                            '確認並換人', 
+                            switchPlayer 
+                        );
+                    }
+                 }, 1000);
+            }
+        }
+        
+        function stopPlayerTimer(playerNum) {
+            const p = playerInfo[playerNum];
+            clearInterval(p.timerInterval);
+            
+            if (gameMode === 'challenge') {
+                p.countdownTime = CHALLENGE_TIME;
+                document.getElementById(`timerDisplay${playerNum}`).textContent = formatTime(CHALLENGE_TIME);
+                document.getElementById(`timerDisplay${playerNum}`).style.color = '#333';
+            }
+        }
+
+        function resetDiceSelection(playerNum) {
+            const p = playerInfo[playerNum];
+            p.requiredProduct = 0;
+            p.selectedDiceIndices = [];
+            
+            document.getElementById(`productDisplay${playerNum}`).textContent = '';
+
+            Array.from(document.getElementById(`diceDisplay${playerNum}`).children).forEach((dice, index) => {
+                dice.classList.remove('selected');
+                dice.onclick = () => selectDice(playerNum, index); 
+            });
+            gameMessageEl.innerHTML = `🎯 **${p.name}** 擲骰完畢，請選擇 **兩顆** 骰子相乘。`;
+        }
+        
+        function resetDiceArea(playerNum, disableRollBtn = true) {
+            const p = playerInfo[playerNum];
+            p.requiredProduct = 0;
+            p.selectedDiceIndices = [];
+            p.diceValues = [0, 0, 0];
+            
+            document.getElementById(`productDisplay${playerNum}`).textContent = '';
+            document.getElementById(`rollDiceBtn${playerNum}`).disabled = disableRollBtn; 
+
+            Array.from(document.getElementById(`diceDisplay${playerNum}`).children).forEach((dice, index) => {
+                dice.textContent = '?';
+                dice.classList.remove('selected', 'dice-rolling');
+                dice.dataset.index = index; 
+                dice.onclick = () => selectDice(playerNum, index); 
+            });
+        }
+        
+        function updateGameMessage() {
+            const p = playerInfo[currentPlayer];
+            gameMessageEl.innerHTML = `輪到 **${p.name}** 擲骰子。`;
+        }
+
+        function updateActivePlayerDisplay() {
+            p1ControlEl.classList.toggle('active', currentPlayer === 1);
+            p2ControlEl.classList.toggle('active', currentPlayer === 2);
+        }
+        
+        function selectMode(mode) {
+            gameMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active-mode');
+            });
+            document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active-mode');
+        }
+        
+        function endGame() {
+            isGameActive = false;
+            stopPlayerTimer(1);
+            stopPlayerTimer(2);
+            document.getElementById('rollDiceBtn1').disabled = true;
+            document.getElementById('rollDiceBtn2').disabled = true;
+            
+            updateScores(); 
+            const finalScore1 = playerInfo[1].score;
+            const finalScore2 = playerInfo[2].score;
+            const rawScore1 = playerInfo[1].rawScore;
+            const rawScore2 = playerInfo[2].rawScore;
+
+            let titleMsg;
+            let resultMsg;
+
+            if (finalScore1 > finalScore2) {
+                titleMsg = `🎉 **${playerInfo[1].name}** 獲勝！`;
+                resultMsg = `**最終比分**：${finalScore1} (${rawScore1} 格) : ${finalScore2} (${rawScore2} 格)。`;
+            } else if (finalScore2 > finalScore1) {
+                titleMsg = `🎉 **${playerInfo[2].name}** 獲勝！`;
+                resultMsg = `**最終比分**：${finalScore1} (${rawScore1} 格) : ${finalScore2} (${rawScore2} 格)。`;
+            } else {
+                titleMsg = `🤝 遊戲平手！`;
+                resultMsg = `**最終比分**：${finalScore1} (${rawScore1} 格) : ${finalScore2} (${rawScore2} 格)。`;
+            }
+            
+            showAlert(
+                titleMsg,
+                resultMsg + "<br><br>請重新整理頁面開始新一局。",
+                '關閉',
+                () => { isGameActive = false; } 
+            );
+        }
+
+        window.onload = function() {
+            selectMode('study'); 
+        };
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二字詞語接龍挑戰 (擴充與優化 V7.0)</title>
+    <style>
+        /* (樣式沿用 V6.0) */
+        :root {
+            --primary-color: #E67E22; /* 火焰橘 */
+            --accent-color: #E74C3C; /* 火紅色 */
+            --bg-color: #FFF9E9;
+            --font-color: #333;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border: 3px solid var(--primary-color);
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px; 
+        }
+
+        h1 {
+            color: var(--accent-color);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* 遊戲狀態顯示 */
+        #gameStatus {
+            background: #FEEEDD;
+            color: var(--primary-color);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* 輸入與控制區 */
+        .input-control {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #userInput {
+            flex-grow: 1;
+            padding: 12px;
+            font-size: 1.1em;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+
+        #userInput:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        .btn {
+            padding: 12px 15px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-submit {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-submit:hover {
+            background-color: #D66D1B;
+        }
+
+        .btn-hint {
+            background-color: #FFC107;
+            color: var(--font-color);
+        }
+
+        .btn-hint:hover {
+            background-color: #FFA000;
+        }
+
+        .btn-start {
+            background-color: var(--accent-color);
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-start:hover {
+            background-color: #C0392B;
+        }
+
+        /* 歷史紀錄區 */
+        #historyContainer {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            background: #fff;
+        }
+
+        .history-item {
+            padding: 8px 0;
+            border-bottom: 1px dotted #eee;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .word-display {
+            font-size: 1.5em;
+            font-weight: 900;
+            color: var(--accent-color);
+        }
+
+        .definition-display {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .player-turn .word-display {
+            color: #2980B9; /* 玩家出的詞語換個藍色 */
+        }
+        
+        .computer-turn {
+            background-color: #FDF5E6;
+            border-radius: 5px;
+            padding: 5px 10px;
+        }
+
+        /* 遊戲訊息 */
+        #message {
+            margin-top: 10px;
+            min-height: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .error-msg {
+            color: #D32F2F;
+        }
+        
+        .success-msg {
+            color: var(--primary-color);
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🔥 二字詞語接龍挑戰 (V7.0) 🔥</h1>
+        
+        <div id="gameStatus">詞語庫已擴充，現在「重新開始」將清除錯誤提示計數。</div>
+
+        <div class="input-control">
+            <input type="text" id="userInput" placeholder="請輸入二字詞語" maxlength="2" disabled>
+            <button class="btn btn-submit" id="submitBtn" onclick="checkInput()" disabled>提交</button>
+            <button class="btn btn-hint" id="hintBtn" onclick="showHint()" disabled>提示</button>
+        </div>
+
+        <div id="message"></div>
+        
+        <button class="btn btn-start" id="startBtn" onclick="startGame()">▶️ 以「火」字開頭開始</button>
+
+        <h2>接龍紀錄</h2>
+        <div id="historyContainer">
+            </div>
+
+    </div>
+
+    <script>
+        // --- 1. 擴充後的二字詞語資料庫 (V7.0) ---
+        // 總詞彙量約 190 個，增加「房」、「腿」、「病」系列。
+        const ACADEMY_DICT = [
+            // --- 「火」字開頭 (基礎起手) ---
+            { word: "火災", explanation: "因燃燒而造成災害。" },
+            { word: "火雞", explanation: "一種體型較大的家禽，常在感恩節食用。" },
+            { word: "火藥", explanation: "由硝石、硫磺、木炭等製成的爆炸性物質。" },
+            { word: "火車", explanation: "以列車方式在鐵軌上行駛的交通工具。" },
+            { word: "火腿", explanation: "豬腿肉經醃製、燻製的食品。" },
+            { word: "火光", explanation: "火焰發出的光芒。" },
+            { word: "火箭", explanation: "利用推進劑燃燒後產生反作用力而飛行的器具。" },
+            { word: "火爐", explanation: "生火取暖或烹飪的器具。" },
+            { word: "火把", explanation: "點燃後用來照明或傳遞訊號的棍子。" },
+            { word: "火鍋", explanation: "一種將食物放入滾燙湯汁中煮熟的烹調方式。" },
+            { word: "火星", explanation: "太陽系中的第四顆行星。" },
+            { word: "火花", explanation: "燃燒時飛濺出的微小火點。" },
+            
+            // --- V7.0 新增詞彙與接續詞 ---
+            
+            // 房系列
+            { word: "房間", explanation: "房屋內有牆壁分隔的空間。" }, // <-- 新增
+            { word: "房子", explanation: "供人居住的建築物。" }, // <-- 新增
+            { word: "房屋", explanation: "房子的總稱。" }, // <-- 新增
+            { word: "房東", explanation: "出租房屋的主人。" }, // <-- 新增
+            { word: "房客", explanation: "租住房屋的客人。" }, // <-- 新增
+            { word: "房產", explanation: "房屋和土地等不動產。" }, // <-- 新增
+            { word: "房價", explanation: "房屋的價格。" }, // <-- 新增
+            { word: "房租", explanation: "租用房屋所需支付的費用。" }, // <-- 新增
+
+            // 接 間 (從「房間」來)
+            { word: "間隔", explanation: "中間隔開的距離或時間。" }, // <-- 新增
+
+            // 接 子 (從「房子」來)
+            // (重複詞語多，略過)
+
+            // 接 屋 (從「房屋」來)
+            { word: "屋頂", explanation: "建築物最上層的部分。" }, // <-- 新增
+
+            // 接 東 (從「房東」來)
+            { word: "東西", explanation: "泛指各種物件；或指方向的東邊和西邊。" }, // <-- 新增
+
+            // 接 客 (從「房客」來)
+            { word: "客人", explanation: "拜訪或被邀請到家裡的人。" }, // <-- 新增
+            
+            // 接 產 (從「房產」來)
+            { word: "產品", explanation: "製造出來的物品。" }, // <-- 新增
+
+            // 接 價 (從「房價」來)
+            { word: "價值", explanation: "事物的重要性或用處。" }, // <-- 新增
+
+            // 接 租 (從「房租」來)
+            { word: "租借", explanation: "租用。" }, // <-- 新增
+            
+            // 腿系列 (接 腿)
+            { word: "腿部", explanation: "腿的部位。" }, // <-- 新增
+            { word: "腿骨", explanation: "腿上的骨頭。" }, // <-- 新增
+            
+            // 接 部 (從「腿部」、「頭部」來)
+            { word: "部位", explanation: "組成整體的一部分。" }, // <-- 新增
+            { word: "部門", explanation: "機關、團體的組織單位。" }, // <-- 新增
+            
+            // 接 骨 (從「腿骨」、「筋骨」來)
+            { word: "骨頭", explanation: "骨骼的俗稱。" }, // <-- 新增
+            { word: "骨架", explanation: "物體的主要架構。" }, // <-- 新增
+            
+            // 病系列
+            { word: "病情", explanation: "疾病發生和發展的情況。" }, // <-- 新增
+            { word: "病況", explanation: "疾病的狀況。" }, // <-- 新增
+            { word: "病灶", explanation: "疾病發生的根源或局部病變。" }, // <-- 新增
+            
+            // 接 況 (從「病況」來)
+            { word: "況且", explanation: "表示進一步說明或加強語氣。" }, // <-- 新增
+
+            // 接 灶 (從「病灶」來)
+            { word: "灶台", explanation: "廚房裡架設鍋子的地方。" },
+
+            // --- 其他關鍵接續詞 (從 V6.0 保留) ---
+            { word: "災害", explanation: "泛指各種不幸的事件或禍患。" },
+            { word: "災情", explanation: "發生災禍的情況。" }, 
+            { word: "災難", explanation: "嚴重的災禍。" }, 
+            { word: "情緒", explanation: "對外界刺激產生的心理反應。" }, 
+            { word: "情節", explanation: "故事的組成部分。" }, 
+            { word: "難題", explanation: "不容易解決的問題。" }, 
+            { word: "難道", explanation: "表示反問語氣。" }, 
+            { word: "蟲子", explanation: "昆蟲的俗稱。" },
+            { word: "蟲害", explanation: "蟲類造成的損害。" }, 
+            { word: "蟲卵", explanation: "蟲的卵。" }, 
+            { word: "卵巢", explanation: "雌性動物產生卵子的器官。" }, 
+            { word: "巢穴", explanation: "鳥獸的窩或洞穴。" }, 
+            { word: "女孩", explanation: "年紀小的女性。" }, 
+            { word: "女生", explanation: "女性的學生。" }, 
+            { word: "女性", explanation: "與男性相對的性別。" }, 
+            { word: "女人", explanation: "成年女性。" }, 
+            { word: "女子", explanation: "女性的統稱。" }, 
+            { word: "女裝", explanation: "女性穿著的服飾。" }, 
+            { word: "女僕", explanation: "從事家務的女性傭人。" }, 
+            { word: "女紅", explanation: "舊時婦女所做的針線活。" }, 
+            { word: "孩童", explanation: "兒童。" }, 
+            { word: "生活", explanation: "生存活動。" }, 
+            { word: "生日", explanation: "出生的日子。" }, 
+            { word: "性格", explanation: "個人特有的思想、行為模式。" }, 
+            { word: "性別", explanation: "生理上區分男女的特徵。" }, 
+            { word: "人物", explanation: "泛指人或角色。" },
+            { word: "人民", explanation: "國家或地區的居民。" }, 
+            { word: "子孫", explanation: "兒子和孫子。" }, 
+            { word: "裝飾", explanation: "點綴、美化。" }, 
+            { word: "僕人", explanation: "在主人家裡服侍的人。" }, 
+            { word: "紅色", explanation: "像血一樣的顏色。" }, 
+            { word: "線索", explanation: "事情的跡象或頭緒。" },
+            { word: "線條", explanation: "美術上的用語，指物體輪廓的線。" }, 
+            { word: "線香", explanation: "拜拜或薰香用的細長香枝。" }, 
+            { word: "線路", explanation: "電流通過的導線或路徑。" }, 
+            { word: "線圈", explanation: "導線纏繞成螺旋狀的物體。" }, 
+            { word: "條紋", explanation: "條狀的紋路。" }, 
+            { word: "香氣", explanation: "芳香的味道。" }, 
+            { word: "圈子", explanation: "圓形範圍或特定的社交群體。" }, 
+            { word: "燈光", explanation: "燈發出的光芒。" }, 
+            { word: "燈泡", explanation: "發光照明的玻璃泡。" }, 
+            { word: "味道", explanation: "食物嚐起來的感覺。" }, 
+            { word: "泡沫", explanation: "液體表面形成的氣泡。" }, 
+            { word: "末日", explanation: "世界的終結之日。" }, 
+            { word: "末端", explanation: "物體的盡頭或邊緣。" }, 
+            { word: "雞蛋", explanation: "母雞所產的卵。" },
+            { word: "藥物", explanation: "用於醫療、預防、診斷疾病的物質。" },
+            { word: "藥水", explanation: "液態的藥劑。" },
+            { word: "車輛", explanation: "各種車子的總稱。" },
+            { word: "車輪", explanation: "車子用來滾動的圓形機件。" },
+            { word: "車禍", explanation: "車輛發生意外。" },
+            { word: "車庫", explanation: "停放車輛的場所。" },
+            { word: "車廂", explanation: "火車、汽車等載客或載物的部分。" },
+            { word: "車頭", explanation: "車輛最前面的部分。" },
+            { word: "車道", explanation: "供車輛行駛的道路。" },
+            { word: "腿毛", explanation: "生長在腿部的毛髮。" },
+            { word: "腿肚", explanation: "小腿後面的肌肉隆起處。" },
+            { word: "光明", explanation: "光亮、有希望。" },
+            { word: "光線", explanation: "發光的物體所散發出的光波。" },
+            { word: "箭頭", explanation: "箭的前端部分。" },
+            { word: "爐灶", explanation: "生火煮食的設備。" },
+            { word: "把握", explanation: "抓住、掌握。" },
+            { word: "星球", explanation: "宇宙中的天體。" },
+            { word: "星期", explanation: "以七天為一週期的時間單位。" },
+            { word: "花草", explanation: "花的植物和草本植物的總稱。" },
+            { word: "花費", explanation: "支出金錢。" },
+            { word: "害蟲", explanation: "對人類有害的昆蟲。" },
+            { word: "害怕", explanation: "心理產生恐懼。" },
+            { word: "蛋白", explanation: "蛋黃周圍透明的液體部分。" },
+            { word: "白色", explanation: "像雪或牛奶的顏色。" },
+            { word: "白飯", explanation: "煮熟的米飯。" },
+            { word: "物品", explanation: "泛指各種器物、東西。" },
+            { word: "物質", explanation: "構成宇宙萬物的實體。" },
+            { word: "質量", explanation: "物體內含物質的量。" },
+            { word: "水災", explanation: "因水患造成的災害。" },
+            { word: "水果", explanation: "多汁且味甜可食的植物果實。" },
+            { word: "水面", explanation: "水體的表面。" },
+            { word: "輪船", explanation: "靠輪機發動的船隻。" },
+            { word: "輪胎", explanation: "套在車輪外層的橡膠圈。" },
+            { word: "禍害", explanation: "災禍、損害。" },
+            { word: "毛病", explanation: "缺點、小問題。" },
+            { word: "毛巾", explanation: "吸水性好的棉織品。" },
+            { word: "肚子", explanation: "腹部的俗稱。" },
+            { word: "肚臍", explanation: "腹部中央凹陷處。" },
+            { word: "臍帶", explanation: "連接胎兒與母體的帶狀物。" },
+            { word: "明白", explanation: "清楚、了解。" },
+            { word: "明天", explanation: "今日之後的一天。" },
+            { word: "頭部", explanation: "身體最上面的部分。" },
+            { word: "頭腦", explanation: "比喻思考能力。" },
+            { word: "頭痛", explanation: "頭部疼痛。" },
+            { word: "頭皮", explanation: "頭上的皮膚。" },
+            { word: "腦袋", explanation: "頭部的俗稱。" },
+            { word: "腦筋", explanation: "比喻思維、智慧。" },
+            { word: "腦力", explanation: "思考的能力。" },
+            { word: "筋骨", explanation: "肌肉和骨骼。" },
+            { word: "痛快", explanation: "暢快、舒服。" },
+            { word: "痛苦", explanation: "身體或精神上的難受。" },
+            { word: "苦瓜", explanation: "一種味道苦澀的瓜類蔬菜。" },
+            { word: "苦難", explanation: "艱難困苦。" },
+            { word: "快樂", explanation: "心情愉悅。" },
+            { word: "樂觀", explanation: "對事物抱持積極開朗的態度。" },
+            { word: "樂器", explanation: "用來演奏音樂的器具。" },
+            { word: "觀念", explanation: "對事物的看法、想法。" },
+            { word: "器官", explanation: "生物體內有特定功能的構造。" },
+            { word: "米飯", explanation: "煮熟的米飯。" },
+            { word: "船隻", explanation: "船的總稱。" },
+            { word: "隻身", explanation: "單獨一人。" },
+            { word: "胎兒", explanation: "尚未出生的嬰兒。" },
+            { word: "星光", explanation: "星星發出的微弱光芒。" },
+            { word: "握手", explanation: "以手交握，表示友好或祝賀。" },
+            { word: "手機", explanation: "行動電話。" },
+            { word: "手電", explanation: "手電筒的簡稱。" },
+            { word: "機會", explanation: "有利的時機。" },
+            { word: "鍋子", explanation: "烹飪用的器具。" },
+            { word: "子女", explanation: "兒女的總稱。" },
+            { word: "子彈", explanation: "槍砲發射的彈頭。" },
+            { word: "彈簧", explanation: "具有彈性，可以儲存能量的元件。" },
+            { word: "女兒", explanation: "女性的孩子。" },
+            { word: "兒歌", explanation: "兒童唱的歌曲。" },
+            { word: "歌曲", explanation: "能演唱的樂曲。" },
+            { word: "曲線", explanation: "不直的線條。" },
+            { word: "期望", explanation: "殷切盼望。" },
+            { word: "費用", explanation: "需要支付的錢。" },
+            { word: "望遠", explanation: "向遠處看。" },
+            { word: "遠方", explanation: "距離較遠的地方。" },
+            { word: "方面", explanation: "事情的某一部分。" },
+            { word: "面具", explanation: "遮蓋臉部的用具。" },
+            { word: "具體", explanation: "有實體或實物形態的。" },
+            { word: "體力", explanation: "身體的力量。" },
+            { word: "身體", explanation: "人或動物的軀體。" },
+            { word: "身材", explanation: "身體的高矮、胖瘦和比例。" },
+            { word: "身心", explanation: "身體和心靈。" },
+            { word: "身教", explanation: "以自身的行為作為榜樣來教導。" },
+            { word: "體育", explanation: "關於身體活動的教育或運動。" },
+            { word: "體重", explanation: "身體的重量。" },
+            { word: "材料", explanation: "製作物品所需的物資。" },
+            { word: "心情", explanation: "內心的感受狀態。" },
+            { word: "心臟", explanation: "循環系統中推動血液流動的器官。" },
+            { word: "教學", explanation: "教師傳授知識和技能。" },
+            { word: "重要", explanation: "有價值或有影響力。" },
+            { word: "料子", explanation: "布料的俗稱。" },
+            { word: "髒亂", explanation: "不整潔，混亂。" },
+            { word: "庫存", explanation: "倉庫中儲存的物資。" },
+            { word: "廂房", explanation: "正房兩側的房屋。" },
+            { word: "道路", explanation: "供人車通行的路。" },
+            { word: "路燈", explanation: "架設在路邊照明的燈。" },
+            { word: "路口", explanation: "道路交會的地方。" }, // <-- 新增，接「口」
+            { word: "生日", explanation: "出生的日子。" },
+            { word: "生活", explanation: "生存活動。" },
+            { word: "性格", explanation: "個人特有的思想、行為模式。" },
+            { word: "性別", explanation: "生理上區分男女的特徵。" },
+            { word: "人民", explanation: "國家或地區的居民。" },
+        ];
+
+        // --- 2. 遊戲狀態變數 ---
+        let isGameStarted = false;
+        let lastWord = ""; 
+        let history = []; 
+        let availableDict = []; 
+        let errorCount = 0; // 追蹤連續輸入錯誤的次數
+
+        // --- 3. DOM 元素獲取 ---
+        const statusEl = document.getElementById('gameStatus');
+        const userInputEl = document.getElementById('userInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const hintBtn = document.getElementById('hintBtn');
+        const startBtn = document.getElementById('startBtn');
+        const historyContainer = document.getElementById('historyContainer');
+        const messageEl = document.getElementById('message');
+
+        // --- 4. 遊戲流程控制 ---
+
+        function startGame() {
+            isGameStarted = true;
+            history = [];
+            errorCount = 0; // V7.0 優化：重置錯誤計數
+            
+            const fireWords = ACADEMY_DICT.filter(item => item.word.startsWith("火"));
+            availableDict = [...ACADEMY_DICT]; 
+
+            historyContainer.innerHTML = '';
+            messageEl.textContent = '';
+            userInputEl.value = '';
+            
+            if (fireWords.length === 0) {
+                 statusEl.innerHTML = '錯誤：字典中沒有以「火」字開頭的詞語！';
+                 return;
+            }
+
+            userInputEl.disabled = false;
+            submitBtn.disabled = false;
+            hintBtn.disabled = false;
+            startBtn.textContent = '🔄 重新開始 (以「火」字開頭)';
+            
+            statusEl.innerHTML = '遊戲開始！電腦正在以「火」字出題...';
+            computerMove(true, fireWords); 
+        }
+
+        /**
+         * 電腦出題 (沿用 V4.0 的優化策略)
+         */
+        function computerMove(isFirstMove = false, firstMoveDict = null) {
+            let nextWordObj;
+            let currentDict = isFirstMove ? firstMoveDict : availableDict;
+
+            if (isFirstMove) {
+                const randomIndex = Math.floor(Math.random() * currentDict.length);
+                nextWordObj = currentDict[randomIndex];
+            } else {
+                const requiredChar = lastWord.slice(-1); 
+                
+                let candidates = currentDict.filter(item => 
+                    item.word.startsWith(requiredChar) 
+                );
+
+                if (candidates.length === 0) {
+                    endGame('玩家贏了！電腦詞窮了，太厲害了！');
+                    return;
+                }
+                
+                // 篩選安全詞：確保下一輪還有詞可接
+                let safeCandidates = candidates.filter(candidate => {
+                    const nextRequiredChar = candidate.word.slice(-1);
+                    const nextPossibleWords = availableDict.filter(item => 
+                        item.word.startsWith(nextRequiredChar) && item.word !== candidate.word
+                    );
+                    return nextPossibleWords.length > 0;
+                });
+                
+                let selectionPool = safeCandidates.length > 0 ? safeCandidates : candidates;
+
+                const randomIndex = Math.floor(Math.random() * selectionPool.length);
+                nextWordObj = selectionPool[randomIndex];
+            }
+            
+            lastWord = nextWordObj.word;
+            
+            availableDict = availableDict.filter(item => item.word !== lastWord);
+
+            addHistory(lastWord, nextWordObj.explanation, 'computer-turn');
+            
+            const requiredChar = lastWord.slice(-1);
+            statusEl.innerHTML = `請接龍：<span style="color:var(--accent-color); font-size:1.3em;">${lastWord}</span>，首字為「<span style="font-size:1.5em; color:var(--primary-color);">**${requiredChar}**</span>」`;
+            messageEl.textContent = '現在輪到你接龍了！';
+            userInputEl.focus();
+        }
+
+        /**
+         * 玩家提交輸入並檢查
+         */
+        function checkInput() {
+            if (!isGameStarted || userInputEl.disabled) return;
+            
+            const playerInput = userInputEl.value.trim();
+            messageEl.textContent = '';
+
+            if (playerInput.length !== 2) {
+                displayMessage('❌ 請輸入二字詞語。', 'error-msg');
+                errorCount = 0; 
+                return;
+            }
+
+            const inputWordObj = ACADEMY_DICT.find(item => item.word === playerInput);
+            
+            // 1. 檢查是否為詞庫中的詞
+            if (!inputWordObj) {
+                displayMessage(`❌ 「${playerInput}」不在詞語庫中。`, 'error-msg');
+                errorCount++;
+                checkErrorTip(); 
+                return;
+            }
+
+            // 2. 檢查是否已經出過
+            if (!availableDict.some(item => item.word === playerInput)) {
+                displayMessage(`❌ 「${playerInput}」已經被使用過了。`, 'error-msg');
+                errorCount++;
+                checkErrorTip(); 
+                return;
+            }
+
+            const requiredChar = lastWord.slice(-1);
+            
+            // 3. 檢查接龍規則
+            if (playerInput.charAt(0) !== requiredChar) {
+                displayMessage(`❌ 首字必須是「${requiredChar}」！`, 'error-msg');
+                errorCount++;
+                checkErrorTip(); 
+                return;
+            }
+
+            // 成功接龍
+            errorCount = 0; // 成功後重置錯誤計數
+            lastWord = playerInput;
+            availableDict = availableDict.filter(item => item.word !== lastWord);
+
+            addHistory(lastWord, inputWordObj.explanation, 'player-turn');
+            userInputEl.value = '';
+            displayMessage('✅ 接龍成功！換電腦出題。', 'success-msg');
+            
+            setTimeout(computerMove, 1000); 
+        }
+        
+        /**
+         * 檢查連續輸入錯誤，並給予隨機提示 
+         */
+        function checkErrorTip() {
+            // V7.0: 檢查 errorCount 是否在 startGame() 中被重設，確保重來時沒有舊的計數。
+            if (errorCount >= 2) {
+                const requiredChar = lastWord.slice(-1);
+                const candidates = availableDict.filter(item => 
+                    item.word.startsWith(requiredChar) 
+                );
+                
+                if (candidates.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * candidates.length);
+                    const hintWord = candidates[randomIndex].word;
+                    
+                    displayMessage(`🚨 連續錯誤！提示一組正確答案：<span style="color:#00796B;">**${hintWord}**</span>`, 'error-msg');
+                }
+                errorCount = 0; 
+            }
+        }
+
+        /**
+         * 顯示提示 (手動點擊) 
+         */
+        function showHint() {
+            if (!isGameStarted || userInputEl.disabled) return;
+            
+            const requiredChar = lastWord.slice(-1);
+            
+            const candidates = availableDict.filter(item => 
+                item.word.startsWith(requiredChar) 
+            );
+
+            if (candidates.length === 0) {
+                displayMessage('💡 提示：目前沒有詞語可以接龍了！', 'error-msg');
+                return;
+            }
+
+            const maxHints = Math.min(candidates.length, 3);
+            const shuffled = candidates.sort(() => 0.5 - Math.random());
+            const selectedHints = shuffled.slice(0, maxHints);
+            
+            let hintText = `💡 提示：可接「**${requiredChar}**」開頭的詞語，例如：`;
+            selectedHints.forEach((item, index) => {
+                hintText += (index > 0 ? '、' : '') + item.word;
+            });
+
+            displayMessage(hintText, 'success-msg');
+        }
+
+        /**
+         * 結束遊戲
+         */
+        function endGame(finalMessage) {
+            isGameStarted = false;
+            userInputEl.disabled = true;
+            submitBtn.disabled = true;
+            hintBtn.disabled = true;
+            
+            const score = history.length;
+            statusEl.innerHTML = `**遊戲結束！** ${finalMessage} <br>共接龍 **${score}** 個詞語。`;
+            displayMessage(`🏆 你的最終分數是：${score}`, 'success-msg');
+        }
+
+        // --- 5. 介面更新 ---
+        
+        function addHistory(word, explanation, turnClass) {
+            history.push({ word, explanation, turnClass });
+            
+            const newItem = document.createElement('div');
+            newItem.className = `history-item ${turnClass}`;
+            newItem.innerHTML = `
+                <div class="word-display">${word}</div>
+                <div class="definition-display">釋義：${explanation}</div>
+            `;
+            
+            historyContainer.insertBefore(newItem, historyContainer.firstChild);
+
+            if (historyContainer.scrollTop > 0) {
+                historyContainer.scrollTop = 0; 
+            }
+        }
+        
+        function displayMessage(text, className = '') {
+            messageEl.className = className;
+            messageEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        }
+        
+        userInputEl.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                checkInput();
+            }
+        });
+
+        window.onload = function() {
+            statusEl.innerHTML = 'V7.0 更新完成：詞語庫已擴充，且重啟遊戲將清除所有計數。';
+        };
+
+    </script>
+</body>
+</html>
