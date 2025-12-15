@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>相似字比較互動遊戲 - 學習部首差異</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 設置全局字體為 Inter，並添加中文字體支持 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@100..900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            background-color: #1a1a2e; /* 深海藍背景 */
+            color: #ffffff;
+        }
+
+        /* 3D 卡牌翻轉效果設置 */
+        .card-container {
+            perspective: 1000px; /* 設置透視深度 */
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+            pointer-events: none; /* 翻轉後禁止再次點擊 */
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* 隱藏背面 */
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card-front {
+            background-color: #2e4d6e; /* 卡牌正面顏色 */
+        }
+
+        .card-back {
+            background-color: #f7f7f7; /* 卡牌背面顏色 */
+            color: #1a1a2e;
+            transform: rotateY(180deg); /* 初始旋轉 180 度 */
+            text-align: left;
+            align-items: flex-start;
+        }
+
+        /* 答案卡牌的邊框樣式 */
+        .correct {
+            border: 4px solid #4ade80; /* 正確時的邊框顏色 */
+            box-shadow: 0 0 30px rgba(74, 222, 128, 0.7);
+        }
+
+        .incorrect {
+            border: 4px solid #f87171; /* 錯誤時的邊框顏色 */
+            box-shadow: 0 0 30px rgba(248, 113, 113, 0.7);
+        }
+
+        /* 填空框樣式 */
+        .missing-char-box {
+            display: inline-block;
+            width: 3rem; /* 寬度 */
+            height: 1.2em; /* 高度 */
+            border-bottom: 3px solid #ff5722; /* 底線 */
+            margin: 0 0.25rem;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 1em; /* 繼承父元素字體大小 */
+            transition: all 0.3s ease-out;
+        }
+
+        .score-info {
+            min-width: 150px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex flex-col items-center">
+
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-[#9d4edd] tracking-wide mb-2">相似字部首比較大挑戰</h1>
+        <p class="text-lg text-gray-300">請選擇正確的字，完成句子並學習字詞知識！</p>
+    </header>
+
+    <main class="w-full max-w-4xl">
+        
+        <!-- 遊戲訊息與得分區 -->
+        <div id="game-info" class="flex flex-col sm:flex-row justify-between items-center mb-6 p-4 bg-[#39395f] rounded-xl shadow-lg">
+            <div class="text-xl font-semibold mb-2 sm:mb-0">
+                目前進度：<span id="question-progress" class="text-yellow-400">0/10</span>
+            </div>
+            <div id="message-box" class="text-xl font-bold text-center text-green-400 transition-opacity duration-300 opacity-0 min-h-[1.5rem] flex-grow">
+                <!-- 遊戲提示訊息會在這裡顯示 -->
+            </div>
+            <div class="score-info text-xl font-semibold mt-2 sm:mt-0">
+                得分：<span id="score" class="text-yellow-400">0</span>
+            </div>
+            
+            <button id="next-button" onclick="loadNextQuestion()" class="mt-4 sm:mt-0 sm:ml-4 px-6 py-2 bg-[#ff5722] hover:bg-[#e64a19] rounded-lg font-bold transition duration-300 transform scale-0 invisible whitespace-nowrap">
+                下一題
+            </button>
+        </div>
+
+        <!-- 例句展示區 -->
+        <div class="text-center mb-10 p-6 bg-[#4e6c92] rounded-2xl shadow-xl border-b-4 border-l-2 border-[#8da4b7]">
+            <p id="sentence" class="text-2xl sm:text-3xl font-bold italic leading-relaxed">
+                <!-- 例句內容 -->
+            </p>
+        </div>
+        
+        <!-- 卡牌選擇區 -->
+        <div id="card-area" class="flex flex-col sm:flex-row gap-6">
+
+            <!-- 卡牌 1 -->
+            <div id="card-0-container" class="card-container flex-1 h-80 min-h-[320px]" onclick="handleCardClick(0)">
+                <div id="card-0" class="card">
+                    <div class="card-face card-front flex items-center justify-center text-4xl font-extrabold">
+                        請選擇
+                    </div>
+                    <div class="card-face card-back p-5 sm:p-8">
+                        <div id="card-0-content">
+                            <!-- 卡牌背面內容 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡牌 2 -->
+            <div id="card-1-container" class="card-container flex-1 h-80 min-h-[320px]" onclick="handleCardClick(1)">
+                <div id="card-1" class="card">
+                    <div class="card-face card-front flex items-center justify-center text-4xl font-extrabold">
+                        請選擇
+                    </div>
+                    <div class="card-face card-back p-5 sm:p-8">
+                        <div id="card-1-content">
+                            <!-- 卡牌背面內容 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // 遊戲數據庫 (包含相似字對、例句和正確答案)
+        // 確保優先選擇只更改部首的相似字 (部首: 日、月、火、手、木、口)
+        const gameData = [
+            {
+                // 1. 部首：口 / 火 (Base: 欠)
+                charA: { word: '吹', bopomofo: 'ㄔㄨㄟ', meaning: '用口或器具送氣。', examples: ['吹風', '吹奏', '吹熄'], radical: '口' },
+                charB: { word: '炊', bopomofo: 'ㄔㄨㄟ', meaning: '燒火煮飯。', examples: ['炊飯', '野炊', '巧婦難為無米之炊'], radical: '火' },
+                sentence: [
+                    '廚房裡傳來媽媽__飯的香味。',
+                    '古代人必須生火__煮食物。',
+                    '今天晚上我們打算在野外__事。'
+                ],
+                correctIndex: 1, correctChar: '炊'
+            },
+            {
+                // 2. 部首：日 / 火 (Base: 召)
+                charA: { word: '昭', bopomofo: 'ㄓㄠ', meaning: '光明、顯著。', examples: ['昭然若揭', '天理昭彰', '昭告天下'], radical: '日' },
+                charB: { word: '照', bopomofo: 'ㄓㄠˋ', meaning: '光線照射、映照。', examples: ['照明', '拍照', '照亮'], radical: '火' },
+                sentence: [
+                    '這裡日__充足，所以植物生長得特別好。',
+                    '請注意行車安全，路口__明不足。',
+                    '夜晚路燈__亮了整條街道。'
+                ],
+                correctIndex: 1, correctChar: '照'
+            },
+            {
+                // 3. 部首：口 / 火 (Base: 喿)
+                charA: { word: '噪', bopomofo: 'ㄗㄠˋ', meaning: '喧鬧、吵雜。', examples: ['喧噪', '鼓噪', '噪音'], radical: '口' },
+                charB: { word: '燥', bopomofo: 'ㄗㄠˋ', meaning: '乾燥、缺水份。', examples: ['乾燥', '燥熱', '枯燥'], radical: '火' },
+                sentence: [
+                    '工廠的機器運轉產生了巨大的__音。',
+                    '在同事們的鼓__下，他向她伸出了手。',
+                    '經過這幾場表演，他已經是個聲名大__的明星了。'
+                ],
+                correctIndex: 0, correctChar: '噪'
+            },
+            {
+                // 4. 部首：木 / 貝 (Base: 才) - 保留上次接受的優秀相似字
+                charA: { word: '材', bopomofo: 'ㄘㄞˊ', meaning: '木料、素材、才能。', examples: ['材料', '木材', '人才'], radical: '木' },
+                charB: { word: '財', bopomofo: 'ㄘㄞˊ', meaning: '錢財、寶物。', examples: ['財富', '財產', '發財'], radical: '貝' },
+                sentence: [
+                    '這家公司擁有雄厚的__力，足以擴大投資。',
+                    '他靠著買賣房地產累積__富。',
+                    '她把所有的__產都放在銀行裡。'
+                ],
+                correctIndex: 1, correctChar: '財'
+            },
+            {
+                // 5. 部首：手 / 火 (Base: 包)
+                charA: { word: '抱', bopomofo: 'ㄅㄠˋ', meaning: '用手臂圍住、懷藏。', examples: ['抱歉', '擁抱', '懷抱'], radical: '手' },
+                charB: { word: '炮', bopomofo: 'ㄆㄠˋ', meaning: '用火藥發射的武器。', examples: ['炮火', '炮彈', '鞭炮'], radical: '火' },
+                sentence: [
+                    '他小心翼翼地將受傷的小狗__在懷裡。',
+                    '她躺在媽媽的懷__裡，覺得很安心。',
+                    '對於自己的錯誤，他感到非常__歉。'
+                ],
+                correctIndex: 0, correctChar: '抱'
+            },
+            {
+                // 6. 部首：日 / 水 (Base: 青)
+                charA: { word: '晴', bopomofo: 'ㄑㄧㄥˊ', meaning: '天空無雲、天氣好。', examples: ['晴朗', '晴天', '晴空'], radical: '日' },
+                charB: { word: '清', bopomofo: 'ㄑㄧㄥ', meaning: '乾淨、透明、明白。', examples: ['清潔', '清澈', '清爽'], radical: '水' },
+                sentence: [
+                    '經過一場雨，空氣變得格外__新。', // 清新
+                    '我每天早上都會用__水洗臉。', // 清水
+                    '這湖水__澈見底，十分美麗。' // 清澈
+                ],
+                correctIndex: 1, correctChar: '清' // 已修正: '清' 是 charB (索引 1)
+            },
+            {
+                // 7. 部首：木 / 火 (Base: 考)
+                charA: { word: '栲', bopomofo: 'ㄎㄠˇ', meaning: '一種常綠喬木。', examples: ['栲樹', '栲皮'], radical: '木' },
+                charB: { word: '烤', bopomofo: 'ㄎㄠˇ', meaning: '用火烘熟食物。', examples: ['烤肉', '燒烤', '烘烤'], radical: '火' },
+                sentence: [
+                    '週末大家一起到戶外__肉聚餐。',
+                    '這種樹的樹皮經過火__可以提取單寧酸。',
+                    '經過高溫烘__，麵包變得香脆可口。'
+                ],
+                correctIndex: 1, correctChar: '烤'
+            },
+            {
+                // 8. 部首：手 / 頁 (Base: 是)
+                charA: { word: '提', bopomofo: 'ㄊㄧˊ', meaning: '用手舉起、帶領。', examples: ['提出', '提問', '提早'], radical: '手' },
+                charB: { word: '題', bopomofo: 'ㄊㄧˊ', meaning: '問題、標記。', examples: ['題目', '問題', '試題'], radical: '頁' },
+                sentence: [
+                    '老師在黑板上寫了幾道數學__。',
+                    '請先舉手再回答問__。',
+                    '請在__目卷上寫下你的名字。'
+                ],
+                correctIndex: 1, correctChar: '題'
+            },
+            {
+                // 9. 部首：手 / 木 (Base: 工)
+                charA: { word: '扛', bopomofo: 'ㄎㄤˊ', meaning: '用肩頭擔負。', examples: ['扛貨', '扛轎', '扛鼎'], radical: '手' },
+                charB: { word: '杠', bopomofo: 'ㄍㄤ', meaning: '棍狀物、橫木。', examples: ['橫杠', '杠桿'], radical: '木' },
+                sentence: [
+                    '他一個人__著沉重的米袋走回家。',
+                    '如今演變成這個局面，應該要有人__起責任。',
+                    '工人用肩膀__起了所有的行李。'
+                ],
+                correctIndex: 0, correctChar: '扛'
+            },
+            {
+                // 10. 部首：手 / 木 (Base: 莫)
+                charA: { word: '摸', bopomofo: 'ㄇㄛ', meaning: '用手接觸、探尋。', examples: ['撫摸', '摸索', '摸黑'], radical: '手' },
+                charB: { word: '模', bopomofo: 'ㄇㄛˊ', meaning: '規範、式樣。', examples: ['模範', '模型', '模仿'], radical: '木' },
+                sentence: [
+                    '他的副業是擔任__特兒，為平面雜誌拍照。', // 模特兒
+                    '這座建築是城市發展的__範。', // 模範
+                    '我們應該學習他助人為樂的__樣。' // 模樣
+                ],
+                correctIndex: 1, correctChar: '模' // 已修正: '模' 是 charB (索引 1)
+            },
+            {
+                // 11. 部首：口 / 火 (Base: 亢)
+                charA: { word: '吭', bopomofo: 'ㄏㄤˊ/ㄎㄥ', meaning: '喉嚨、發出聲音。', examples: ['引吭高歌', '不吭一聲'], radical: '口' }, // 已修正: bopomofo 語法錯誤
+                charB: { word: '炕', bopomofo: 'ㄎㄤˋ', meaning: '北方用磚砌成的睡床，下面可燒火取暖。', examples: ['睡炕', '火炕'], radical: '火' },
+                sentence: [
+                    '他對這件事始終不__一聲，讓人很擔心。',
+                    '她一整天都悶不__聲的，感覺心情不太好。',
+                    '歌手在舞臺上引__高歌，贏得滿堂采。'
+                ],
+                correctIndex: 0, correctChar: '吭'
+            },
+            {
+                // 12. 部首：手 / 火 (Base: 少)
+                charA: { word: '抄', bopomofo: 'ㄔㄠ', meaning: '用手取物、複製。', examples: ['抄襲', '抄寫', '抄近路'], radical: '手' },
+                charB: { word: '炒', bopomofo: 'ㄔㄠˇ', meaning: '烹飪方法，用少量油加熱攪拌。', examples: ['炒菜', '炒飯', '熱炒'], radical: '火' },
+                sentence: [
+                    '他喜歡吃媽媽做的紅油__手。', // 抄手
+                    '這篇文章有明顯__襲的痕跡。', // 抄襲
+                    '為了趕時間，我們決定__近路。' // 抄近路
+                ],
+                correctIndex: 0, correctChar: '抄' // 已修正: '抄' 是 charA (索引 0)
+            },
+            {
+                // 13. 部首：日 / 言 (Base: 京)
+                charA: { word: '晾', bopomofo: 'ㄌㄧㄤˋ', meaning: '將東西攤開，受風日曬。', examples: ['晾衣服', '晾曬'], radical: '日' },
+                charB: { word: '諒', bopomofo: 'ㄌㄧㄤˋ', meaning: '體察、寬恕、相信。', examples: ['原諒', '體諒', '諒解'], radical: '言' },
+                sentence: [
+                    '請你__解我的苦衷，我不是故意遲到的。', // 諒解
+                    '你願意原__我嗎？', // 原諒
+                    '他請求對方__解，並承諾下次不會再犯。' // 諒解
+                ],
+                correctIndex: 1, correctChar: '諒' // 已修正: '諒' 是 charB (索引 1)
+            },
+            {
+                // 14. 部首：口 / 木 (Base: 俞)
+                charA: { word: '喻', bopomofo: 'ㄩˋ', meaning: '曉諭、比方。', examples: ['比喻', '家喻戶曉', '曉喻'], radical: '口' },
+                charB: { word: '榆', bopomofo: 'ㄩˊ', meaning: '一種落葉喬木。', examples: ['榆樹', '榆錢'], radical: '木' },
+                sentence: [
+                    '這個故事__義深遠，令人深思。',
+                    '我來跟你說個比喻，你就懂意思了。',
+                    '他的名聲家__戶曉，無人不知。'
+                ],
+                correctIndex: 0, correctChar: '喻'
+            },
+            {
+                // 15. 部首：木 / 火 (Base: 由)
+                charA: { word: '柚', bopomofo: 'ㄧㄡˋ', meaning: '一種常綠喬木，也指其果實。', examples: ['柚子', '文旦柚'], radical: '木' },
+                charB: { word: '燭', bopomofo: 'ㄓㄨˊ', meaning: '用蠟製成的照明物。', examples: ['蠟燭', '燭光', '紅燭'], radical: '火' },
+                sentence: [
+                    '中秋節吃__子是傳統習俗。',
+                    '爸爸買了很多葡萄__，酸酸甜甜真好吃。',
+                    '這種__木材質堅硬，常用來製作家具。'
+                ],
+                correctIndex: 0, correctChar: '柚'
+            },
+            {
+                // 16. 部首：手 / 口 (Base: 少)
+                charA: { word: '抄', bopomofo: 'ㄔㄠ', meaning: '用手取物、複製。', examples: ['抄襲', '抄寫', '抄近路'], radical: '手' },
+                charB: { word: '吵', bopomofo: 'ㄔㄠˇ', meaning: '爭執、喧鬧。', examples: ['吵架', '吵鬧', '爭吵'], radical: '口' },
+                sentence: [
+                    '鄰居們因為一點小事大聲爭__。',
+                    '小聲點，別把孩子__醒了。',
+                    '為了避免__鬧，他選擇保持沉默。'
+                ],
+                correctIndex: 1, correctChar: '吵'
+            },
+            {
+                // 17. 部首：手 / 口 (Base: 丁)
+                charA: { word: '打', bopomofo: 'ㄉㄚˇ', meaning: '擊、敲擊。', examples: ['打球', '打鼓', '打獵'], radical: '手' },
+                charB: { word: '叮', bopomofo: 'ㄉㄧㄥ', meaning: '蚊蟲咬、囑咐。', examples: ['叮嚀', '叮咬', '千叮萬囑'], radical: '口' },
+                sentence: [
+                    '媽媽再三__嚀，要我注意安全。',
+                    '夏天容易被蚊蟲__咬，需要擦防蚊液。',
+                    '搖晃鈴鐺就會發出__噹聲響。'
+                ],
+                correctIndex: 1, correctChar: '叮'
+            },
+            {
+                // 18. 部首：手 / 木 (Base: 平)
+                charA: { word: '抨', bopomofo: 'ㄆㄥ', meaning: '彈劾、批評。', examples: ['抨擊', '彈抨'], radical: '手' },
+                charB: { word: '秤', bopomofo: 'ㄔㄥˋ', meaning: '量輕重的器具。', examples: ['秤重', '桿秤', '磅秤'], radical: '木' },
+                sentence: [
+                    '新聞記者嚴厲__擊了不當的政策。',
+                    '社會大眾對這件事表達了強烈的__擊。',
+                    '他因為說錯話，遭受了媒體的__擊。' // 新增第三句以符合要求
+                ],
+                correctIndex: 0, correctChar: '抨'
+            },
+            {
+                // 19. 部首：人 / 木 (Base: 共)
+                charA: { word: '供', bopomofo: 'ㄍㄨㄥ', meaning: '供給、提供。', examples: ['供應', '提供', '供品'], radical: '人' },
+                charB: { word: '栱', bopomofo: 'ㄍㄨㄥˇ', meaning: '斗栱，支撐屋頂的木構件。', examples: ['斗栱', '栱木'], radical: '木' },
+                sentence: [
+                    '為了__需平衡，我們需要多進一點貨。',
+                    '這間公司__應了全國一半的電力。',
+                    '請提__你的個人資料以完成註冊。'
+                ],
+                correctIndex: 0, correctChar: '供'
+            },
+            {
+                // 20. 部首：木 / 火 (Base: 林)
+                charA: { word: '林', bopomofo: 'ㄌㄧㄣˊ', meaning: '樹木叢生的地方。', examples: ['森林', '林木', '樹林'], radical: '木' },
+                charB: { word: '焚', bopomofo: 'ㄈㄣˊ', meaning: '燒、燒毀。', examples: ['焚燒', '焚化', '焚稿'], radical: '火' },
+                sentence: [
+                    '為了防止疾病擴散，必須將衣物__毀。', // 焚毀
+                    '請勿隨意__燒垃圾，以免污染空氣。', // 焚燒
+                    '古代人常在祭祀時__香禱告。' // 焚香
+                ],
+                correctIndex: 1, correctChar: '焚' // 已修正: 題目以 charB 搭配句子，故修正索引
+            }
+        ];
+
+        let gameQuestions = []; // 儲存本次遊戲的 10 個隨機題目在 gameData 中的索引
+        let currentQuestionIndexInBatch = -1; // 追蹤目前是第幾題 (0-9)
+        let currentQuestionDataIndex = -1; // 當前題目在 gameData 中的原始索引
+        let score = 0;
+        let isCardFlipped = false; // 防止重複點擊
+
+        const sentenceEl = document.getElementById('sentence');
+        const scoreEl = document.getElementById('score');
+        const progressEl = document.getElementById('question-progress');
+        const messageBoxEl = document.getElementById('message-box');
+        const nextButton = document.getElementById('next-button');
+
+        /**
+         * 混淆陣列 (Fisher-Yates Shuffle)
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        /**
+         * 初始化遊戲：隨機抽取 10 題
+         */
+        function initializeGame() {
+            score = 0;
+            scoreEl.textContent = score;
+            nextButton.textContent = "下一題";
+            nextButton.onclick = loadNextQuestion;
+            currentQuestionIndexInBatch = -1;
+            
+            // 1. 產生所有題目的索引
+            const allIndices = Array.from({ length: gameData.length }, (_, i) => i);
+            
+            // 2. 混淆索引
+            shuffleArray(allIndices);
+
+            // 3. 抽取前 10 題作為本次遊戲題目
+            const numQuestions = Math.min(10, gameData.length);
+            gameQuestions = allIndices.slice(0, numQuestions);
+
+            if (gameQuestions.length > 0) {
+                // 開始第一題
+                loadNextQuestion();
+            } else {
+                showMessage('遊戲資料庫為空，無法開始遊戲！', 'text-red-400');
+            }
+        }
+
+        /**
+         * 設置當前題目
+         * @param {number} dataIndex - 題目在 gameData 中的索引
+         */
+        function setupQuestion(dataIndex) {
+            currentQuestionDataIndex = dataIndex; // 記錄原始索引
+            isCardFlipped = false;
+            nextButton.classList.add('scale-0', 'invisible'); // 隱藏下一題按鈕
+            messageBoxEl.classList.remove('opacity-100');
+            messageBoxEl.classList.add('opacity-0');
+            
+            // 更新進度顯示
+            progressEl.textContent = `${currentQuestionIndexInBatch + 1}/${gameQuestions.length}`;
+
+            // 重置卡牌狀態
+            for (let i = 0; i < 2; i++) {
+                const cardEl = document.getElementById(`card-${i}`);
+                const containerEl = document.getElementById(`card-${i}-container`);
+                const frontEl = cardEl.querySelector('.card-front');
+                cardEl.classList.remove('flipped');
+                containerEl.classList.remove('correct', 'incorrect');
+                frontEl.textContent = '請選擇'; 
+                frontEl.style.fontSize = '2.25rem';
+                containerEl.style.cursor = 'pointer'; // 恢復可點擊
+            }
+
+            const currentQuestion = gameData[dataIndex];
+
+            // --- 隨機選取一個例句 ---
+            const sentences = currentQuestion.sentence;
+            const randomIndex = Math.floor(Math.random() * sentences.length);
+            const randomSentence = sentences[randomIndex];
+            
+            // 隨機決定 A/B 放在卡牌 0 或卡牌 1
+            const flipOrder = Math.random() < 0.5 ? 0 : 1; 
+            
+            // 設置卡牌內容
+            const card0Data = flipOrder === 0 ? currentQuestion.charA : currentQuestion.charB;
+            const card1Data = flipOrder === 0 ? currentQuestion.charB : currentQuestion.charA;
+
+            // 確定正確答案在哪張卡牌上 (0 或 1)
+            const correctChar = currentQuestion.correctChar;
+            const correctCardIndex = (card0Data.word === correctChar) ? 0 : 1;
+            
+            currentQuestion.currentCards = [card0Data, card1Data, correctCardIndex]; // 存儲本次的卡牌配置
+
+            // 在例句中替換空格為可選的填空框
+            const displaySentence = randomSentence.replace('__', `<span id="missing-box" class="missing-char-box bg-[#1a1a2e]/40 rounded-sm"></span>`);
+            sentenceEl.innerHTML = displaySentence;
+
+            // 設置卡牌正面的提示字
+            document.getElementById(`card-0`).querySelector('.card-front').textContent = card0Data.word;
+            document.getElementById(`card-1`).querySelector('.card-front').textContent = card1Data.word;
+            
+            document.getElementById(`card-0`).querySelector('.card-front').style.fontSize = '5rem';
+            document.getElementById(`card-1`).querySelector('.card-front').style.fontSize = '5rem';
+
+            // 設置卡牌背面內容
+            updateCardBackContent(0, card0Data);
+            updateCardBackContent(1, card1Data);
+        }
+
+        /**
+         * 更新卡牌背面的詳細內容
+         */
+        function updateCardBackContent(cardIndex, data) {
+            const contentEl = document.getElementById(`card-${cardIndex}-content`);
+            contentEl.innerHTML = `
+                <h2 class="text-6xl font-black mb-3">${data.word}</h2>
+                <p class="text-2xl font-semibold mb-3">部首: ${data.radical} &middot; 注音: ${data.bopomofo}</p>
+                <div class="w-full h-px bg-gray-400 my-2"></div>
+                <div class="w-full mt-2">
+                    <h3 class="text-xl font-bold text-[#8da4b7] mb-1">解釋：</h3>
+                    <p class="text-lg">${data.meaning}</p>
+                </div>
+                <div class="w-full mt-4">
+                    <h3 class="text-xl font-bold text-[#8da4b7] mb-1">例詞：</h3>
+                    <p class="text-lg">${data.examples.join('、')}</p>
+                </div>
+            `;
+        }
+
+
+        /**
+         * 處理卡牌點擊事件
+         */
+        function handleCardClick(clickedIndex) {
+            // 從存儲的配置中獲取當前數據，以避免在點擊時重新計算
+            const currentQuestionConfig = gameData[currentQuestionDataIndex].currentCards;
+            if (isCardFlipped || !currentQuestionConfig) return; 
+            isCardFlipped = true;
+
+            // 點擊後，禁止所有卡牌容器再次觸發點擊
+            document.getElementById('card-0-container').style.cursor = 'default';
+            document.getElementById('card-1-container').style.cursor = 'default';
+
+            const cardEl = document.getElementById(`card-${clickedIndex}`);
+            const containerEl = document.getElementById(`card-${clickedIndex}-container`);
+            
+            // 翻轉卡牌
+            cardEl.classList.add('flipped');
+
+            // 檢查答案
+            const correctIndex = currentQuestionConfig[2];
+            const isCorrect = (clickedIndex === correctIndex);
+
+            // 獲取填空框元素
+            const missingBox = document.getElementById('missing-box');
+            const chosenChar = currentQuestionConfig[clickedIndex].word;
+            
+            // 填入選擇的字
+            missingBox.textContent = chosenChar;
+            missingBox.classList.remove('missing-char-box', 'bg-[#1a1a2e]/40');
+            missingBox.style.borderBottom = 'none'; // 移除填空線
+
+            if (isCorrect) {
+                score++;
+                containerEl.classList.add('correct');
+                // 高亮正確的字
+                missingBox.classList.add('text-green-400', 'font-extrabold', 'text-4xl');
+                showMessage('答對了！很棒！', 'text-green-400');
+            } else {
+                containerEl.classList.add('incorrect');
+                // 高亮錯誤的字
+                missingBox.classList.add('text-red-400', 'font-extrabold', 'text-4xl');
+                showMessage('答錯了，請仔細看看兩個字的差異！', 'text-red-400');
+                
+                // 翻轉正確的卡牌以供比較
+                const correctCardEl = document.getElementById(`card-${correctIndex}`);
+                // 延遲翻轉，讓使用者先看到自己的選擇
+                setTimeout(() => {
+                    correctCardEl.classList.add('flipped');
+                }, 1000); 
+            }
+
+            scoreEl.textContent = score;
+
+            // 延遲顯示「下一題」按鈕
+            setTimeout(() => {
+                nextButton.classList.remove('scale-0', 'invisible');
+                nextButton.classList.add('scale-100');
+            }, isCorrect ? 1500 : 3000); 
+        }
+
+        /**
+         * 顯示提示訊息
+         */
+        function showMessage(msg, colorClass) {
+            messageBoxEl.textContent = msg;
+            messageBoxEl.className = `text-xl font-bold text-center transition-opacity duration-300 opacity-100 min-h-[1.5rem] ${colorClass}`;
+        }
+
+        /**
+         * 加載下一題或結束遊戲
+         */
+        function loadNextQuestion() {
+            currentQuestionIndexInBatch++;
+
+            if (currentQuestionIndexInBatch < gameQuestions.length) {
+                // 繼續下一題
+                const nextDataIndex = gameQuestions[currentQuestionIndexInBatch];
+                setupQuestion(nextDataIndex);
+            } else {
+                // 遊戲結束
+                nextButton.classList.remove('scale-100');
+                nextButton.classList.add('scale-0', 'invisible');
+                
+                showMessage(`遊戲結束！您的最終得分是 ${score}/${gameQuestions.length}。`, 'text-yellow-400');
+                
+                // 顯示重新開始按鈕
+                setTimeout(() => {
+                    nextButton.textContent = "重新開始";
+                    nextButton.classList.remove('scale-0', 'invisible');
+                    nextButton.classList.add('scale-100');
+                    nextButton.onclick = initializeGame;
+                }, 1000);
+            }
+        }
+
+        // 頁面加載完成後，啟動遊戲
+        window.onload = initializeGame;
+    </script>
+
+</body>
+</html>

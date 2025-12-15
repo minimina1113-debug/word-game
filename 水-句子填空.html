@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水字詞語填空挑戰</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 設置全局字體為 Inter，並添加中文字體支持 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@100..900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            background-color: #0d1b2a; /* 深海主題藍 */
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        /* 3D 卡牌翻轉效果設置 */
+        .card-container {
+            perspective: 1000px; /* 設置透視深度 */
+            height: 200px; /* 固定卡牌高度 */
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+            pointer-events: none; /* 翻轉後禁止再次點擊 */
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* 隱藏背面 */
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow-y: auto; /* 允許背面內容滾動 */
+        }
+
+        .card-front {
+            background-color: #415a77; /* 卡牌正面顏色 - 較深的藍 */
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #e0fbfc; /* 淺色文字 */
+            transition: background-color 0.3s;
+        }
+
+        .card-front:hover {
+            background-color: #5d7e9e;
+        }
+
+        .card-back {
+            background-color: #e0fbfc; /* 卡牌背面顏色 - 淺水色 */
+            color: #0d1b2a;
+            transform: rotateY(180deg); /* 初始旋轉 180 度 */
+            text-align: left;
+            padding: 1rem;
+        }
+
+        /* 答案卡牌的邊框樣式 */
+        .correct {
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            border: 3px solid #00f0ff;
+        }
+
+        .incorrect {
+            box-shadow: 0 0 20px rgba(255, 50, 50, 0.8);
+            border: 3px solid #ff3232;
+        }
+
+        /* 填空框樣式 */
+        .missing-char-box {
+            display: inline-block;
+            width: auto; /* 讓寬度適應內容 */
+            min-width: 5rem;
+            height: 1.2em; 
+            border-bottom: 3px solid #ffd166; /* 警告黃底線 */
+            margin: 0 0.25rem;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 1em; 
+            transition: all 0.5s ease-out;
+        }
+        
+        .answer-text {
+            font-size: 1.8rem;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex flex-col items-center">
+
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-[#9d4edd] tracking-wide mb-2">🌊 水字詞語填空挑戰 💦</h1>
+        <p class="text-lg text-gray-300">請選擇正確的詞語，完成包含「水」字的句子！</p>
+    </header>
+
+    <main class="w-full max-w-5xl">
+        
+        <!-- 遊戲訊息與得分區 -->
+        <div id="game-info" class="flex flex-wrap justify-between items-center mb-6 p-4 bg-[#1b263b] rounded-xl shadow-lg">
+            <div class="text-xl font-semibold mb-2 sm:mb-0">
+                目前進度：<span id="question-progress" class="text-yellow-400">0/10</span>
+            </div>
+            <div id="message-box" class="text-xl font-bold text-center transition-opacity duration-300 opacity-0 min-h-[1.5rem] flex-grow mx-4">
+                <!-- 遊戲提示訊息會在這裡顯示 -->
+            </div>
+            <div class="score-info text-xl font-semibold mt-2 sm:mt-0">
+                得分：<span id="score" class="text-yellow-400">0</span>
+            </div>
+            
+            <button id="next-button" onclick="loadNextQuestion()" class="mt-4 sm:mt-0 sm:ml-4 px-6 py-2 bg-[#ff5722] hover:bg-[#e64a19] rounded-lg font-bold transition duration-300 transform scale-0 invisible whitespace-nowrap">
+                下一題
+            </button>
+        </div>
+
+        <!-- 例句展示區 -->
+        <div class="text-center mb-10 p-6 bg-[#354f52] rounded-2xl shadow-xl border-b-4 border-l-2 border-[#52796f]">
+            <p id="sentence" class="text-2xl sm:text-3xl font-bold italic leading-relaxed">
+                <!-- 例句內容 -->
+            </p>
+        </div>
+        
+        <!-- 卡牌選擇區 (4x 容器) -->
+        <div id="card-area" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <!-- Card elements will be generated here -->
+        </div>
+    </main>
+
+    <script>
+        // 遊戲數據庫 (包含詞語、句子、注音和意思)
+        const allWords = [
+            { word: '淹水', bopomofo: 'ㄧㄢ ㄕㄨㄟˇ', meaning: '水患，指大水漫過或浸沒地面、房屋。', sentences: ['昨天的暴雨導致城市許多地區都_____了。', '如果排水系統不良，大雨過後很容易_____。', '為了避免_____，我們準備了沙包擋在門口。'] },
+            { word: '水果', bopomofo: 'ㄕㄨㄟˇ ㄍㄨㄛˇ', meaning: '可食用的多汁果實，富含維生素。', sentences: ['夏天時，多吃點_____有益健康。', '她喜歡在飯後切一盤新鮮的_____。', '這家店賣的進口_____種類非常多。'] },
+            { word: '水平', bopomofo: 'ㄕㄨㄟˇ ㄆㄧㄥˊ', meaning: '衡量的標準或達到的程度。', sentences: ['經過努力練習，他的英文_____有了顯著提升。', '我們應當努力提高生活的_____和質量。', '這塊土地的_____儀顯示完全是平的。'] },
+            { word: '開水', bopopmfo: 'ㄎㄞ ㄕㄨㄟˇ', meaning: '煮沸後冷卻或溫熱的水，可直接飲用。', sentences: ['飲用前請先將_____煮沸，確保衛生。', '運動後要多喝_____補充流失的水分。', '請給我一杯溫_____，謝謝。'] },
+            { word: '潛水', bopomofo: 'ㄑㄧㄢˊ ㄕㄨㄟˇ', meaning: '穿戴特殊裝備，潛入水中活動或探險。', sentences: ['他最大的興趣是到深海進行_____攝影。', '這次旅行我們報名了體驗_____的課程。', '專業_____員可以探索深達數十公尺的海底世界。'] },
+            { word: '淚水', bopomofo: 'ㄌㄟˋ ㄕㄨㄟˇ', meaning: '眼睛分泌的液體，通常因情緒波動或異物刺激而產生。', sentences: ['聽到那個感人的故事，她忍不住流下了_____。', '雖然失敗了，但他擦乾_____，決定重新再來。', '喜悅的_____模糊了她的視線。'] },
+            { word: '清水', bopomofo: 'ㄑㄧㄥ ㄕㄨㄟˇ', meaning: '潔淨、無色的水。', sentences: ['請用_____清洗碗筷，不要用肥皂。', '這條小溪的_____可以直接看到底下的石頭。', '他只用_____煮麵，調味非常簡單。'] },
+            { word: '噴水', bopomofo: 'ㄆㄣ ㄕㄨㄟˇ', meaning: '將水以霧狀或射流狀噴射出來。', sentences: ['公園裡的雕像每隔一小時會自動_____。', '消防車抵達後立即開始對火場_____滅火。', '那個調皮的孩子用_____槍對著路人射擊。'] },
+            { word: '海水', bopomofo: 'ㄏㄞˇ ㄕㄨㄟˇ', meaning: '海洋中的水。', sentences: ['這片_____藍得像寶石一樣美麗。', '他第一次嚐到_____，感覺又鹹又澀。', '夕陽灑在_____上，波光粼粼。'] },
+            { word: '汽水', bopomofo: 'ㄑㄧˋ ㄕㄨㄟˇ', meaning: '含有二氧化碳的甜味飲料。', sentences: ['這種甜甜的_____是小朋友的最愛。', '炎熱的夏天，來一杯冰鎮的_____非常暢快。', '他打開瓶蓋，_____裡的氣泡不斷冒出來。'] },
+            { word: '水塔', bopomofo: 'ㄕㄨㄟˇ ㄊㄚˇ', meaning: '一種高架的儲水設施。', sentences: ['屋頂上架設了_____來儲存生活用水。', '清洗_____是維護飲用水衛生的重要步驟。', '遠處那個圓形的高架建築就是小鎮的_____。'] },
+            { word: '水庫', bopomofo: 'ㄕㄨㄟˇ ㄎㄨˋ', meaning: '攔河築壩蓄水，用於防洪、灌溉或發電的工程設施。', sentences: ['為了防洪和灌溉，政府修建了大型_____。', '如果_____水位過低，就會影響民生供水。', '新聞報導了_____正在進行洩洪的消息。'] },
+            { word: '水電', bopomofo: 'ㄕㄨㄟˇ ㄉㄧㄢˋ', meaning: '水和電，常指生活中的基礎公用事業費用。', sentences: ['每個月都要繳交瓦斯和_____費。', '房東說房租不包含_____和網路費用。', '這次颱風造成許多地區_____供應中斷。'] },
+            { word: '口水', bopomofo: 'ㄎㄡˇ ㄕㄨㄟˇ', meaning: '唾液，口腔內分泌的液體。', sentences: ['看到桌上的美食，他忍不住流下了_____。', '說話時請注意不要_____四濺。', '嬰兒長牙時常常會流_____。'] },
+            { word: '溫水', bopomofo: 'ㄨㄣ ㄕㄨㄟˇ', meaning: '溫度適中的水，不冷也不熱。', sentences: ['醫生建議他多喝_____，有助於身體恢復。', '泡腳時應該用約四十度的_____。', '他用_____緩慢地清洗著傷口。'] },
+            // --- 新增 10 組詞語 ---
+            { word: '淡水', bopomofo: 'ㄉㄢˋ ㄕㄨㄟˇ', meaning: '不含鹽分的水，如河水、湖水等。', sentences: ['人類的生存依賴於_____資源。', '這條河流裡的都是_____，可以飲用。', '科學家正在研究如何淨化被污染的_____。'] },
+            { word: '水滴', bopomofo: 'ㄕㄨㄟˇ ㄉㄧ', meaning: '微小的水珠。', sentences: ['在葉片上，晶瑩的_____反射著陽光。', '經過長時間的累積，_____也能穿透石頭。', '濕氣凝結成_____，附著在窗戶上。'] },
+            { word: '水墨', bopomofo: 'ㄕㄨㄟˇ ㄇㄛˋ', meaning: '中國傳統繪畫，以水調和墨色作畫。', sentences: ['這幅山_____畫表現出高遠的意境。', '他擅長以簡單的線條勾勒出_____的韻味。', '博物館正在展出當代_____藝術作品。'] },
+            { word: '熱水', bopomofo: 'ㄖㄜˋ ㄕㄨㄟˇ', meaning: '溫度較高的水。', sentences: ['冬天洗澡時，需要用_____沖暖身體。', '請給我一杯_____，我要泡茶。', '這個保溫瓶可以讓_____保持溫度超過八小時。'] },
+            { word: '水災', bopomofo: 'ㄕㄨㄟˇ ㄗㄞ', meaning: '由洪水或暴雨引起的災害。', sentences: ['颱風過後，低窪地區容易發生_____。', '政府迅速組織了救援隊伍前往_____區。', '這次的_____造成了嚴重的農作物損失。'] },
+            { word: '水餃', bopomofo: 'ㄕㄨㄟˇ ㄐㄧㄠˇ', meaning: '一種常見的中式麵食，通常煮熟食用。', sentences: ['晚餐我想吃一盤香菇高麗菜餡的_____。', '冷凍_____是很方便的速食選擇。', '這家店的_____皮薄餡多，非常美味。'] },
+            { word: '泉水', bopomofo: 'ㄑㄩㄢˊ ㄕㄨㄟˇ', meaning: '從地下自然湧出的水。', sentences: ['登山客發現了一處清甜的天然_____。', '這座山谷裡有幾眼_____，終年不絕。', '我們用瓶子接滿了冰涼的_____解渴。'] },
+            { word: '水星', bopomofo: 'ㄕㄨㄟˇ ㄒㄧㄥ', meaning: '太陽系中最靠近太陽的行星。', sentences: ['天文學家正在觀察_____的軌道和地表特徵。', '_____是太陽系中運行速度最快的行星。', '我們可以在清晨或黃昏看到_____。'] },
+            { word: '水性', bopomofo: 'ㄕㄨㄟˇ ㄒㄧㄥˋ', meaning: '指物質溶於水的性質或人對水的適應能力（游泳）。', sentences: ['他的_____很好，輕鬆就能游到對岸。', '這種油漆是_____的，無毒又環保。', '由於沒有經過訓練，他的_____還很差。'] },
+            { word: '水溝', bopomofo: 'ㄕㄨㄟˇ ㄍㄡ', meaning: '人工挖掘或修建的排水通道。', sentences: ['為了順利排水，必須定期清理街道旁的_____。', '颱風來襲前，工人們檢查了所有的_____蓋。', '一隻小貓不小心掉進了路邊的_____裡。'] }
+        ];
+
+        let gameQuestions = []; // 本次遊戲的 10 個隨機題目
+        let currentQuestionIndexInBatch = -1;
+        let currentQuestionData = null; // 當前題目的完整數據
+        let score = 0;
+        let isCardFlipped = false; // 追蹤卡牌是否已經翻面
+
+        const sentenceEl = document.getElementById('sentence');
+        const scoreEl = document.getElementById('score');
+        const progressEl = document.getElementById('question-progress');
+        const messageBoxEl = document.getElementById('message-box');
+        const nextButton = document.getElementById('next-button');
+        const cardAreaEl = document.getElementById('card-area');
+
+        /**
+         * 混淆陣列 (Fisher-Yates Shuffle)
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        /**
+         * 取得隨機的不重複錯誤選項
+         */
+        function getIncorrectOptions(correctWord, allWordsData, count = 3) {
+            const pool = allWordsData.filter(item => item.word !== correctWord);
+            shuffleArray(pool);
+            return pool.slice(0, count); // 返回完整的詞語對象，包含意思和注音
+        }
+
+        /**
+         * 初始化遊戲：隨機抽取 10 題
+         */
+        function initializeGame() {
+            score = 0;
+            scoreEl.textContent = score;
+            nextButton.textContent = "下一題";
+            nextButton.onclick = loadNextQuestion;
+            currentQuestionIndexInBatch = -1;
+            
+            // 隨機抽取 10 個題目 (使用隨機索引，確保不重複)
+            const allIndices = Array.from({ length: allWords.length }, (_, i) => i);
+            shuffleArray(allIndices);
+            const numQuestions = Math.min(10, allWords.length);
+            gameQuestions = allIndices.slice(0, numQuestions).map(i => allWords[i]);
+
+            if (gameQuestions.length > 0) {
+                loadNextQuestion();
+            } else {
+                showMessage('遊戲資料庫為空，無法開始遊戲！', 'text-red-400');
+            }
+        }
+
+        /**
+         * 設置卡牌的 HTML 結構
+         */
+        function generateCardHTML(index, word) {
+            return `
+                <div id="card-${index}-container" class="card-container" onclick="handleCardClick(${index})">
+                    <div id="card-${index}" class="card">
+                        <div class="card-face card-front flex items-center justify-center">
+                            ${word}
+                        </div>
+                        <div class="card-face card-back p-3 sm:p-4">
+                            <div id="card-${index}-content">
+                                <!-- 卡牌背面內容 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        /**
+         * 設置當前題目
+         */
+        function setupQuestion() {
+            currentQuestionData = gameQuestions[currentQuestionIndexInBatch];
+            isCardFlipped = false;
+            nextButton.classList.add('scale-0', 'invisible');
+            messageBoxEl.classList.remove('opacity-100');
+            messageBoxEl.classList.add('opacity-0');
+            cardAreaEl.innerHTML = ''; // 清空卡牌區域
+            
+            // 更新進度顯示
+            progressEl.textContent = `${currentQuestionIndexInBatch + 1}/${gameQuestions.length}`;
+
+            const correctWordData = currentQuestionData;
+            
+            // 1. 準備選項
+            const incorrectOptionsData = getIncorrectOptions(correctWordData.word, allWords, 3);
+            const allOptionsData = [correctWordData, ...incorrectOptionsData];
+            shuffleArray(allOptionsData);
+            
+            currentQuestionData.currentOptionsData = allOptionsData; // 存儲本次選項數據
+
+            // 2. 隨機選取一個例句
+            const sentences = correctWordData.sentences;
+            const randomIndex = Math.floor(Math.random() * sentences.length);
+            const randomSentence = sentences[randomIndex];
+            
+            // 3. 渲染句子
+            const displaySentence = randomSentence.replace('_____', `<span id="missing-box" class="missing-char-box bg-[#1b263b]/40 rounded-sm"></span>`);
+            sentenceEl.innerHTML = displaySentence;
+            
+            // 4. 渲染卡牌
+            let cardHTML = '';
+            for (let i = 0; i < allOptionsData.length; i++) {
+                cardHTML += generateCardHTML(i, allOptionsData[i].word);
+            }
+            cardAreaEl.innerHTML = cardHTML;
+            
+            // 5. 確保所有卡牌可點擊
+            for (let i = 0; i < 4; i++) {
+                 document.getElementById(`card-${i}-container`).style.cursor = 'pointer';
+                 // 移除之前的正確/錯誤標記
+                 document.getElementById(`card-${i}-container`).classList.remove('correct', 'incorrect');
+                 document.getElementById(`card-${i}`).classList.remove('flipped');
+            }
+        }
+
+        /**
+         * 更新卡牌背面的詳細內容
+         */
+        function updateCardBackContent(cardIndex, data) {
+            const contentEl = document.getElementById(`card-${cardIndex}-content`);
+            contentEl.innerHTML = `
+                <h2 class="text-3xl font-black mb-1 text-[#0d1b2a] answer-text">${data.word}</h2>
+                <p class="text-xl font-semibold mb-2 text-gray-700">注音: ${data.bopomofo}</p>
+                <div class="w-full h-px bg-gray-400 my-1"></div>
+                <div class="w-full mt-2 text-left">
+                    <h3 class="text-lg font-bold text-[#415a77] mb-1">詞義：</h3>
+                    <p class="text-base text-gray-800">${data.meaning}</p>
+                </div>
+            `;
+        }
+
+
+        /**
+         * 處理卡牌點擊事件
+         */
+        function handleCardClick(clickedIndex) {
+            if (isCardFlipped) return; 
+            isCardFlipped = true; // 鎖定點擊
+
+            const chosenWordData = currentQuestionData.currentOptionsData[clickedIndex];
+            const correctWord = currentQuestionData.word;
+            const isCorrect = (chosenWordData.word === correctWord);
+            let correctIndex = -1;
+
+            // 1. 禁用所有卡牌點擊並找到正確答案的索引
+            for (let i = 0; i < 4; i++) {
+                 document.getElementById(`card-${i}-container`).style.cursor = 'default';
+                 if (currentQuestionData.currentOptionsData[i].word === correctWord) {
+                    correctIndex = i;
+                 }
+            }
+
+            // 2. 立即填入填空框並更新分數/提示
+            const missingBox = document.getElementById('missing-box');
+            missingBox.textContent = chosenWordData.word;
+            missingBox.classList.remove('missing-char-box', 'bg-[#1b263b]/40');
+            missingBox.style.borderBottom = 'none';
+
+            if (isCorrect) {
+                score++;
+                missingBox.classList.add('text-green-400', 'answer-text');
+                showMessage('✔️ 正確！答案卡已翻面，請仔細閱讀詞義。', 'text-green-400');
+            } else {
+                // 雖然選錯了，但填空框仍顯示使用者選的答案
+                missingBox.classList.add('text-red-400', 'answer-text');
+                showMessage('❌ 錯誤！正確答案卡會先翻面，請注意比較。', 'text-red-400');
+            }
+            scoreEl.textContent = score;
+
+            // 3. Phase 1: 立即翻轉正確答案卡
+            if (correctIndex !== -1) {
+                const correctCardEl = document.getElementById(`card-${correctIndex}`);
+                const correctContainerEl = document.getElementById(`card-${correctIndex}-container`);
+                
+                // 翻轉卡牌
+                correctCardEl.classList.add('flipped');
+                
+                // 設置卡牌背面內容
+                updateCardBackContent(correctIndex, currentQuestionData.currentOptionsData[correctIndex]);
+
+                // 標記正確答案
+                correctContainerEl.classList.add('correct');
+
+                // 如果使用者選錯，將錯誤卡牌也標記出來
+                if (!isCorrect) {
+                    document.getElementById(`card-${clickedIndex}-container`).classList.add('incorrect');
+                }
+            }
+
+
+            // 4. Phase 2: 延遲 5 秒後，翻轉所有未翻轉的卡片
+            setTimeout(() => {
+                for (let i = 0; i < 4; i++) {
+                    const cardEl = document.getElementById(`card-${i}`);
+                    
+                    // 如果卡片還沒翻轉 (即非正確答案卡)
+                    if (!cardEl.classList.contains('flipped')) {
+                        const wordData = currentQuestionData.currentOptionsData[i];
+
+                        // 翻轉卡牌
+                        cardEl.classList.add('flipped');
+                        
+                        // 設置卡牌背面內容
+                        updateCardBackContent(i, wordData);
+                    }
+                }
+
+                // 顯示「下一題」按鈕
+                setTimeout(() => {
+                    nextButton.classList.remove('scale-0', 'invisible');
+                    nextButton.classList.add('scale-100');
+                }, 800); // 留一點時間讓最後一批卡片完成翻轉
+            }, 5000); // 延遲 5 秒
+        }
+
+        /**
+         * 顯示提示訊息
+         */
+        function showMessage(msg, colorClass) {
+            messageBoxEl.textContent = msg;
+            messageBoxEl.className = `text-xl font-bold text-center transition-opacity duration-300 opacity-100 min-h-[1.5rem] ${colorClass} flex-grow mx-4`;
+        }
+
+        /**
+         * 加載下一題或結束遊戲
+         */
+        function loadNextQuestion() {
+            currentQuestionIndexInBatch++; // 移動到下一題
+
+            if (currentQuestionIndexInBatch < gameQuestions.length) {
+                // 繼續下一題
+                setupQuestion();
+            } else {
+                // 遊戲結束
+                nextButton.classList.remove('scale-100');
+                nextButton.classList.add('scale-0', 'invisible');
+                
+                showMessage(`🎉 遊戲結束！您的最終得分是 ${score}/${gameQuestions.length}。`, 'text-yellow-400');
+                
+                // 顯示重新開始按鈕
+                setTimeout(() => {
+                    nextButton.textContent = "重新開始";
+                    nextButton.classList.remove('scale-0', 'invisible');
+                    nextButton.classList.add('scale-100');
+                    nextButton.onclick = initializeGame;
+                }, 1000);
+            }
+        }
+
+        // 頁面加載完成後，啟動遊戲
+        window.onload = initializeGame;
+    </script>
+
+</body>
+</html>
